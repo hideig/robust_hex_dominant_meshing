@@ -38,6 +38,7 @@ public:
     MultiResolutionHierarchy();
 	//bool myLoad(const TetMeshForCombining &tets);
     bool load(const std::string &filename);
+	bool my_load(const std::string &filename);
 	MeshStats compute_mesh_stats(const MatrixXu &F_, const MatrixXf &V_, bool deterministic = false);
 
 	//protected:
@@ -114,7 +115,8 @@ public:
 	void orient_hybrid_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF, vector<vector<uint32_t>> &HP, vector<vector<bool>> &HPF_flag);
 	void swap_data3D();
 
-		bool edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges);
+		bool edge_tagging3D(vector<uint32_t> &ledges);
+		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges);
 		void tagging_collapseTet();
 		bool split_long_edge3D(vector<uint32_t> &ledges);
 		bool split_face3D(bool red_edge);
@@ -142,18 +144,18 @@ public:
 	Float tet_elen_ratio() { return tElen_ratio; };
     Float averageEdgeLength() const { return mAverageEdgeLength; }
 	Float scale() const { return ratio_scale; }
-	void setScale(Float scale) { 
+	//void setScale(Float scale) { 
+	//	ratio_scale = scale; 
+	//	mScale = diagonalLen * scale; 
+	//	mInvScale = 1.f / mScale;
+	//	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+	//}
+	void setScale(Float scale) { // 设置目标网格边长
 		ratio_scale = scale; 
-		mScale = diagonalLen * scale; 
+		tet_elen = scale;
+		mScale = scale;
 		mInvScale = 1.f / mScale;
-		tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
-
-		//ratio_scale = scale; 
-		//tet_elen = ratio_scale;
-		//mScale = scale;
-		//mInvScale = 1.f / mScale;
 	}
-
     ordered_lock &mutex() const { return mMutex; }
 
     int levels() const { return mL.size(); }
@@ -178,8 +180,7 @@ public:
 	std::vector<tuple_E> nEs;
 	vector<vector<bool>> nV_boundary_flag;
 	std::vector<std::vector<uint32_t>> nV_nes;
-	std::vector<tuple_E> otheredges;
-
+	std::vector<tuple_E> otheredges, persistentedges;
 	vector<vector<uint32_t>> vnfs;
 	Float quadricW = 1;
 

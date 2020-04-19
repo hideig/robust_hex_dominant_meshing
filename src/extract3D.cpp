@@ -975,10 +975,12 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	construct_Es_TetEs_Fs_TetFs_FEs();
 
 	//=============START MESH EXTRACTION=============//
-	mV_tag = mO[0]; newQ = mQ[0]; newN3D = mN[0]; newQu3D = Quadric_copy;
+	
 	vector<uint32_t> ledges;
+	//edge_tagging3D(ledges);
+	mV_tag = mO[0]; newQ = mQ[0]; newN3D = mN[0]; newQu3D = Quadric_copy;
 	mRes.otheredges.clear();
-	edge_tagging3D(ledges, mRes.otheredges);
+	my_edge_tagging3D(ledges, mRes.otheredges);
 	cout << " mRes.otheredge:" << mRes.otheredges.size() << endl;
 	cout << "ledges.size(): " << ledges.size() << endl;
 	//vertex insert.
@@ -1001,8 +1003,8 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 
 	//loop
 	int32_t h_num = 0, times = 0, equal_times = 0;
-	vector<tuple_E> tmp;
 	while (true) {
+		cout <<"times: "<< times << endl;
 		////edge-collapse & fusion
 		tagging_collapseTet();
 		swap_data3D(); // tf:作用
@@ -1017,7 +1019,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 			}
 		}
 
-		edge_tagging3D(ledges, tmp);
+		edge_tagging3D(ledges);
 		////vertex insert
 		if (ledges.size() && splitting) {
 			split_long_edge3D(ledges);
@@ -1059,9 +1061,6 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 		times++;
 	}
 	time_decompose.endStage();
-	Timer<> timer;
-	timer.beginStage("s_____________________________..");
-
 	uint32_t largest_polyhdral = 0;
 	for (uint32_t i = 0; i < P_tag.size(); i++)
 		if (P_tag[i].size() > largest_polyhdral)
@@ -1112,16 +1111,15 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 			sta.polyhedral_ratios.push_back(Float(H_type[i]) / sta.pN);
 		}
 	}
-	timer.endStage();
 	//output
 //========for quick tets output=============
-//	mV_tag = mV[0];
-//	swap_data3D();
+	//mV_tag = mV[0];
+	//swap_data3D();
 
-	PF_flag.clear();
-	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
-	char path_temp[512] = "H:/RHDM1/cube_tet.HYBRID";
-	write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
+	//PF_flag.clear();
+	//orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
+	//char path_temp[512] = "H:/RHDM1/cube_tet.HYBRID";
+	//write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
 	//int cnt = 0;
 	//for (int i = 0; i < F_tag.size(); i++) {
 	//	vec3 p[3];
@@ -1296,23 +1294,28 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 //write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
 //system("PAUSE");
 //========for quick tets output=============
-	//PF_flag.clear();
-	//orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
+	PF_flag.clear();
+	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
 
 	E_final_rend.setZero();
     E_final_rend.resize(6, 2 * mpEs.size());
-	//E_final_rend.resize(6, 2 * mRes.mpEes.size());
 	composit_edges_colors(mV_tag, mpEs, E_final_rend);
-	//E_final_rend.resize(6, 2 * mRes.otheredges.size());
-	//composit_edges_colors(mRes.mVv_tag, mRes.otheredges, E_final_rend);
-	//composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
 	composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
+
+	//E_final_rend.resize(6, 2 * mRes.mpEes.size());
+	//composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
+
+	//E_final_rend.resize(6, 2 * mRes.otheredges.size());
+	//composit_edges_colors(mV_tag, mRes.otheredges, E_final_rend);
+	
+	//E_final_rend.resize(6, 2 * mRes.persistentedges.size());
+	//composit_edges_colors(mV_tag, mRes.persistentedges, E_final_rend);
+
 	//composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
 	
 	cout << "done with extraction!" << endl;
 }
-
-bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges) {
+bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges) {
 	Timer<> timer;
 	timer.beginStage("edge_tagging3D ");
 
@@ -1340,7 +1343,8 @@ bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges, vector<t
 		for (uint32_t j = 0; j < 3; j++) {
 			if (len[j] >= 1.5) {
 				longcnt++;
-			}else if (len[j] > 0.5&&len[j] < 1.5) {
+			}
+			else if (len[j] > 0.5&&len[j] < 1.5) {
 				shortcnt++;
 			}
 		}
@@ -1352,7 +1356,7 @@ bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges, vector<t
 				vvvround[j] = std::round(len[j]);  // 对vvv取整
 				if (vvvround[j] > 1) {  // 需要插入（vvvround[j]-1）个点
 					//cout << "vvvround[j]: " << vvvround[j] << endl;
-					for (int k = 0; k < vvvround[j]-1; k++) {
+					for (int k = 0; k < vvvround[j] - 1; k++) {
 						Vector3f insert_point;
 						for (int l = 0; l < 3; l++) {
 							insert_point[l] = (k*v0p[l] + (vvvround[j] - k)*v1p[l]) / (vvvround[j]);
@@ -1365,7 +1369,7 @@ bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges, vector<t
 		std::get<4>(e) = std::get<0>(a_posy); // color
 		std::get<3>(e) = std::get<1>(a_posy); // energy
 	}
-	PV_npes_sudo.clear(); 
+	PV_npes_sudo.clear();
 	PV_npes_sudo.resize(mO_copy.cols());
 	for (uint32_t i = 0; i < mpEs.size(); i++) {
 		uint32_t v0 = get<0>(mpEs[i]), v1 = get<1>(mpEs[i]);
@@ -1534,8 +1538,193 @@ bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges, vector<t
 		}
 	}
 
-	sort(ledges.begin(), ledges.end()); 
+	sort(ledges.begin(), ledges.end());
 	ledges.erase(unique(ledges.begin(), ledges.end()), ledges.end());
+	timer.endStage();
+	return hyperlong_edge;
+}
+bool MultiResolutionHierarchy::edge_tagging3D(vector<uint32_t> &ledges) {
+	Timer<> timer;
+	timer.beginStage("edge_tagging3D clocking.....");
+	bool hyperlong_edge = false; ledges.clear();
+	for (auto &e : mpEs) {
+		uint32_t v0 = std::get<0>(e), v1 = std::get<1>(e);
+		Quaternion q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+		std::tuple<short, Float, Vector3f> a_posy = posy3D_completeInfo(mO_copy.col(v0), q0, mO_copy.col(v1), q1, mScale, mInvScale);
+
+		Vector3f len = std::get<2>(a_posy);
+		for (uint32_t j = 0; j < 3; j++) if (std::round(len[j]) > 1) {
+			hyperlong_edge = true;
+			if (get<0>(a_posy) == Edge_tag::B)
+				ledges.push_back(std::get<5>(e));
+			break;
+		}
+
+		std::get<4>(e) = std::get<0>(a_posy);
+		std::get<3>(e) = std::get<1>(a_posy);
+	}
+	PV_npes_sudo.clear(); PV_npes_sudo.resize(mO_copy.cols());
+	for (uint32_t i = 0; i < mpEs.size(); i++) {
+		uint32_t v0 = get<0>(mpEs[i]), v1 = get<1>(mpEs[i]);
+		PV_npes_sudo[v0].push_back(i);
+		PV_npes_sudo[v1].push_back(i);
+	}
+	for (auto &pes : PV_npes_sudo) sort(pes.begin(), pes.end());
+	for (uint32_t i = 0; i < mO_copy.cols(); i++) {
+		vector<uint32_t> vs = PV_npvs[i];
+		//orient rosy
+		std::vector<Quaternion> qs(vs.size() + 1); Quaternion q0 = mQ_copy.col(i);
+		qs[0] = q0;
+		for (uint32_t j = 0; j < vs.size(); j++) qs[j + 1] = Quaternion::applyRotation(mQ_copy.col(vs[j]), q0);
+		//find long edges
+		for (int32_t j = 0; j < vs.size(); j++) {
+			for (int32_t k = j + 1; k < vs.size(); k++) {
+				int32_t v0s[2], v1s[2], pos0[2], pos1[2];
+				v0s[0] = i; v0s[1] = vs[j];
+				v1s[0] = i; v1s[1] = vs[k];
+
+				pos0[0] = 0;
+				pos0[1] = find(vs.begin(), vs.end(), v0s[1]) - vs.begin() + 1;
+				pos1[0] = 0;
+				pos1[1] = find(vs.begin(), vs.end(), v1s[1]) - vs.begin() + 1;
+
+				Quaternion qs0[2], qs1[2];
+				qs0[0] = qs[pos0[0]];
+				qs0[1] = qs[pos0[1]];
+				qs1[0] = qs[pos1[0]];
+				qs1[1] = qs[pos1[1]];
+
+				tuple<short, Float, Vector3f> a_posy0 = posy3D_completeInfo(mO_copy.col(v0s[0]), qs0[0], mO_copy.col(v0s[1]), qs0[1], mScale, mInvScale);
+				if (std::get<0>(a_posy0) != Edge_tag::B) {
+					continue;
+				}
+
+				Vector3f len0 = std::get<2>(a_posy0);
+				short direction0 = -1;
+				for (uint32_t j = 0; j < 3; j++) if (len0[j] > 0.5) direction0 = j;
+
+				tuple<short, Float, Vector3f> a_posy1 = posy3D_completeInfo(mO_copy.col(v1s[0]), qs1[0], mO_copy.col(v1s[1]), qs1[1], mScale, mInvScale);
+				if (std::get<0>(a_posy1) != Edge_tag::B) {
+					continue;
+				}
+				Vector3f len1 = get<2>(a_posy1);
+				short direction1 = -1;
+				for (uint32_t j = 0; j < 3; j++) if (len1[j] > 0.5) direction1 = j;
+
+				if (direction0 == direction1) {
+					if (std::round(len0[direction0] / len1[direction1]) >= 2) {
+						uint32_t which_v = 1;
+						//compute middle point info
+						Quaternion qn = (qs0[0] + qs0[1]).normalized();
+						Vector3f gn = (mO_copy.col(v0s[0]) + mO_copy.col(v0s[1])) * 0.5;
+						tuple<short, Float, Vector3f> a_posy = posy3D_completeInfo(mO_copy.col(v1s[which_v]), qs1[which_v], gn, qn, mScale, mInvScale);
+
+						if (std::get<0>(a_posy) != Edge_tag::R) continue;
+
+						vector<uint32_t> sharede;
+						set_intersection(PV_npes_sudo[v0s[0]].begin(), PV_npes_sudo[v0s[0]].end(), PV_npes_sudo[v0s[1]].begin(), PV_npes_sudo[v0s[1]].end(), back_inserter(sharede));
+						if (!sharede.size()) {
+							system("PAUSE");
+						}
+						ledges.push_back(sharede[0]);
+					}
+					else if (std::round(len1[direction1] / len0[direction0]) >= 2) {
+						uint32_t which_v = 1;
+						//compute middle point info
+						Quaternion qn = (qs1[0] + qs1[1]).normalized();
+						Vector3f gn = (mO_copy.col(v1s[0]) + mO_copy.col(v1s[1])) * 0.5;
+						tuple<short, Float, Vector3f> a_posy = posy3D_completeInfo(mO_copy.col(v0s[which_v]), qs0[which_v], gn, qn, mScale, mInvScale);
+						if (std::get<0>(a_posy) != Edge_tag::R) continue;
+
+						vector<uint32_t> sharede;
+						set_intersection(PV_npes_sudo[v1s[0]].begin(), PV_npes_sudo[v1s[0]].end(), PV_npes_sudo[v1s[1]].begin(), PV_npes_sudo[v1s[1]].end(), back_inserter(sharede));
+						if (!sharede.size()) {
+							system("PAUSE");
+						}
+						ledges.push_back(sharede[0]);
+					}
+				}
+			}
+		}
+	}
+	for (uint32_t i = 0; i < mpFes.size(); i++) {
+		auto &fes = mpFes[i];
+		auto &fvs = mpFvs[i];
+		std::vector<uint32_t> es_temp;
+		//orient es direction
+		for (uint32_t j = 0; j < fvs.size(); j++) {
+			for (auto e : fes) {
+				if ((get<0>(mpEs[e]) == fvs[j] || get<0>(mpEs[e]) == fvs[(j + 1) % fvs.size()]) &&
+					(get<1>(mpEs[e]) == fvs[j] || get<1>(mpEs[e]) == fvs[(j + 1) % fvs.size()])) {
+					es_temp.push_back(e); break;
+				}
+			}
+		}
+		fes = es_temp;
+		//orient rosy
+		std::vector<Quaternion> qs(fvs.size()); Quaternion q0 = mQ_copy.col(fvs[0]);
+		qs[0] = q0;
+		for (uint32_t j = 1; j < fvs.size(); j++) qs[j] = Quaternion::applyRotation(mQ_copy.col(fvs[j]), q0);
+		//find long edges
+		for (uint32_t j = 0; j < fes.size(); j++) {
+			uint32_t e0 = fes[j], e1 = fes[(j + 1) % fes.size()];
+
+			int32_t v0s[2], v1s[2], pos0[2], pos1[2];
+			v0s[0] = get<0>(mpEs[e0]); v0s[1] = get<1>(mpEs[e0]);
+			v1s[0] = get<0>(mpEs[e1]); v1s[1] = get<1>(mpEs[e1]);
+
+			pos0[0] = find(fvs.begin(), fvs.end(), v0s[0]) - fvs.begin();
+			pos0[1] = find(fvs.begin(), fvs.end(), v0s[1]) - fvs.begin();
+			pos1[0] = find(fvs.begin(), fvs.end(), v1s[0]) - fvs.begin();
+			pos1[1] = find(fvs.begin(), fvs.end(), v1s[1]) - fvs.begin();
+
+			Quaternion qs0[2], qs1[2];
+			qs0[0] = qs[pos0[0]];
+			qs0[1] = qs[pos0[1]];
+			qs1[0] = qs[pos1[0]];
+			qs1[1] = qs[pos1[1]];
+			tuple<short, Float, Vector3f> a_posy0 = posy3D_completeInfo(mO_copy.col(v0s[0]), qs0[0], mO_copy.col(v0s[1]), qs0[1], mScale, mInvScale);
+			if (std::get<0>(a_posy0) != Edge_tag::B) continue;
+
+			Vector3f len0 = std::get<2>(a_posy0);
+			short direction0 = -1;
+			for (uint32_t j = 0; j < 3; j++) if (len0[j] > 0.5) direction0 = j;
+
+			tuple<short, Float, Vector3f> a_posy1 = posy3D_completeInfo(mO_copy.col(v1s[0]), qs1[0], mO_copy.col(v1s[1]), qs1[1], mScale, mInvScale);
+			if (std::get<0>(a_posy1) != Edge_tag::B) continue;
+
+			Vector3f len1 = get<2>(a_posy1);
+			short direction1 = -1;
+			for (uint32_t j = 0; j < 3; j++) if (len1[j] > 0.5) direction1 = j;
+
+			if (direction0 == direction1) {
+				if (std::round(len0[direction0] / len1[direction1]) >= 2) {
+					uint32_t which_v = 0;
+					if (v1s[1] != v0s[0] && v1s[1] != v0s[1]) which_v = 1;
+					//compute middle point info
+					Quaternion qn = (qs0[0] + qs0[1]).normalized();
+					Vector3f gn = (mO_copy.col(v0s[0]) + mO_copy.col(v0s[1])) * 0.5;
+					tuple<short, Float, Vector3f> a_posy = posy3D_completeInfo(mO_copy.col(v1s[which_v]), qs1[which_v], gn, qn, mScale, mInvScale);
+					if (std::get<0>(a_posy) != Edge_tag::R) continue;
+
+					ledges.push_back(e0);
+				}
+				else if (std::round(len1[direction1] / len0[direction0]) >= 2) {
+					uint32_t which_v = 0;
+					if (v0s[1] != v1s[0] && v0s[1] != v1s[1]) which_v = 1;
+					//compute middle point info
+					Quaternion qn = (qs1[0] + qs1[1]).normalized();
+					Vector3f gn = (mO_copy.col(v1s[0]) + mO_copy.col(v1s[1])) * 0.5;
+					tuple<short, Float, Vector3f> a_posy = posy3D_completeInfo(mO_copy.col(v0s[which_v]), qs0[which_v], gn, qn, mScale, mInvScale);
+					if (std::get<0>(a_posy) != Edge_tag::R) continue;
+
+					ledges.push_back(e1);
+				}
+			}
+		}
+	}
+
+	sort(ledges.begin(), ledges.end()); ledges.erase(unique(ledges.begin(), ledges.end()), ledges.end());
 	timer.endStage();
 	return hyperlong_edge;
 }

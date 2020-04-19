@@ -229,7 +229,7 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 					int index;
 					double x, y, z;
 					sscanf(buffer, "%lf %lf %lf %d", &x, &y, &z, &index);
-					V.col(index) << x, y, z;
+					V.col(index-1) << x, y, z;
 				}
 			}else if (!strcmp(str, "Triangles")) {
 				if (!fgets(buffer, sizeof(buffer), fp)) break;

@@ -157,14 +157,18 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 #else
 			filename2 = nanogui::file_dialog({
-				{ "obj", "Wavefront mesh" }
+				{ "obj", "Wavefront obj" }
 			}, false);
+			//filename2 = nanogui::file_dialog({
+			//	{ "mesh", "Wavefront mesh" }
+			//}, false);
 #endif
 			if (filename2 == "")
 				return;
 		}
 
 		if(!mRes.load(filename2)) return;
+		//if(!mRes.my_load(filename2)) return;
 		mScaleBox->setValue(mRes.scale());
 
 		filename = filename2;

@@ -90,6 +90,51 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 
     return true;
 }
+bool MultiResolutionHierarchy::my_load(const std::string &filename) {
+	std::lock_guard<ordered_lock> lock(mMutex);
+
+	mV.resize(1);
+	mV[0] = MatrixXf::Zero(3, 1);
+	mF = MatrixXu::Zero(3, 1);
+
+	try {
+		//load_obj(filename, mF, mV[0]);
+		myLoadTetMesh(filename, mV[0], mF, mT);
+	}
+	catch (const std::exception &e) {
+		std::cout << "failed loading obj file." << std::endl;
+#ifdef T_VTAG
+		std::vector<std::vector<uint32_t>> mFs2D_O;
+		load_off(filename, mFs2D_O, mV[0]);
+		std::vector<tuple_E> mEs_O;
+		std::vector<std::vector<uint32_t>> mFes_O;
+		construct_tEs_tFEs(mFs2D_O, mFes_O, mEs_O);
+		tagging_singularities_T_nodes(mV[0], mEs_O, mFs2D_O);
+		char path[300];
+		sprintf(path, "%s%s", filename.c_str(), "_V_flag.txt");
+		write_Vertex_Types_TXT(V_flag, path);
+
+#endif
+		return false;
+	}
+
+	mV.resize(1);
+	mAABB = AABB(
+		mV[0].rowwise().minCoeff(),
+		mV[0].rowwise().maxCoeff()
+	);
+
+	ms = compute_mesh_stats(mF, mV[0]); // ¼ÆËã³ömAverageEdgeLength
+	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
+
+	std::cout << "mAverageEdgeLength: " << mAverageEdgeLength << std::endl;
+	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
+	std::cout << "ratio_scale: " << ratio_scale << std::endl;
+	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+	std::cout << "tet_elen: " << tet_elen << std::endl;
+
+	return true;
+}
 MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const MatrixXf &V_, bool deterministic)
 {
 	MeshStats stats;
@@ -637,8 +682,8 @@ void MultiResolutionHierarchy::build() {
 
 	mBVH = new BVH(&mF, &mV[0], mAABB);
 	mBVH->build();
-//	mScale = tet_elen;
-	mScale = diagonalLen * ratio_scale;
+	mScale = tet_elen;
+	//mScale = diagonalLen * ratio_scale;
 	mInvScale = 1.f / mScale;
 
 	std::cout << "diagonalLen, ratio_scale, mScale: " << diagonalLen << ", " << ratio_scale << ", " << mScale << std::endl;
