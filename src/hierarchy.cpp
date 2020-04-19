@@ -7,11 +7,13 @@
 #include "dedge.h"
 #include "subdivide.h"
 #include "tri_tri_intersection.h"
+#include "tet_mesh.h"
 
 MultiResolutionHierarchy::MultiResolutionHierarchy() {
     mV = { MatrixXf::Zero(3, 1) };
     mN = { MatrixXf::Zero(3, 1) };
     mO = { MatrixXf::Zero(3, 1) };
+	my_mO = { MatrixXf::Zero(3, 1) };
     mQ = { MatrixXf::Zero(4, 1) };
     mBVH = nullptr;
 	ratio_scale = 3.0;
@@ -20,6 +22,28 @@ MultiResolutionHierarchy::MultiResolutionHierarchy() {
 	re_color = true;
 	Qquadric = splitting = decomposes = doublets = triangles = false;
 }
+//bool MultiResolutionHierarchy::myLoad(const TetMeshForCombining &tets){
+//	std::lock_guard<ordered_lock> lock(mMutex);
+//
+//	mV.resize(1);
+//	mV[0] = MatrixXf::Zero(3, 1);
+//	mF = MatrixXu::Zero(3, 1);
+//
+//	myLoadTetMesh(mV[0], mF, mT, tets);
+//
+//	mV.resize(1);
+//	mAABB = AABB(
+//		mV[0].rowwise().minCoeff(),
+//		mV[0].rowwise().maxCoeff()
+//	);
+//
+//	ms = compute_mesh_stats(mF, mV[0]);
+//	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
+//	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
+//	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+//
+//	return true;
+//}
 
 bool MultiResolutionHierarchy::load(const std::string &filename) {
     std::lock_guard<ordered_lock> lock(mMutex);
@@ -30,6 +54,7 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 	
 	try {
 		load_obj(filename, mF, mV[0]);
+		//myLoadTetMesh(filename, mV[0], mF, mT);
 	}
 	catch (const std::exception &e) {
 		std::cout << "failed loading obj file." << std::endl;
@@ -54,10 +79,14 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 		mV[0].rowwise().maxCoeff()
 	);
 
-	ms = compute_mesh_stats(mF, mV[0]);
+	ms = compute_mesh_stats(mF, mV[0]); // 计算出mAverageEdgeLength
 	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
+
+	std::cout << "mAverageEdgeLength: " << mAverageEdgeLength << std::endl;
 	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
+	std::cout << "ratio_scale: " << ratio_scale << std::endl;
 	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+	std::cout << "tet_elen: " << tet_elen << std::endl;
 
     return true;
 }
@@ -118,8 +147,7 @@ bool MultiResolutionHierarchy::tet_meshing()
 	if(!tetMesh()){
 		V = mV[0];
 		F = mF;
-	}
-	else {
+	}else {
 		V = mV[0];
 		F = mF;
 	}
@@ -200,8 +228,7 @@ bool MultiResolutionHierarchy::tet_meshing()
 	in.pointlist = new REAL[in.numberofpoints * 3];
 	in.pointmarkerlist = new int[in.numberofpoints];
 	in.pointmtrlist = new double[in.numberofpoints];
-	for (int i = 0; i<in.numberofpoints; i++)
-	{
+	for (int i = 0; i<in.numberofpoints; i++){
 		in.pointlist[3 * i + 0] = V(0,i);
 		in.pointlist[3 * i + 1] = V(1,i);
 		in.pointlist[3 * i + 2] = V(2,i);
@@ -234,12 +261,12 @@ bool MultiResolutionHierarchy::tet_meshing()
 		for (uint32_t j = 0; j < 3; j++)
 			mV[0](j, i) = out.pointlist[3 * i + j];
 	}
-	mT.setZero(); mT.resize(4, out.numberoftetrahedra);
+	mT.setZero(); 
+	mT.resize(4, out.numberoftetrahedra);
 	for (int i = 0; i < out.numberoftetrahedra; i++){
 		for (uint32_t j = 0; j < 4; j++)
 			mT(j, i) = out.tetrahedronlist[4 * i + j];
 	}
-
 	//Fs
 	std::vector<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, bool>> tempF;
 	tempF.reserve(mT.cols() * 4);
@@ -267,8 +294,7 @@ bool MultiResolutionHierarchy::tet_meshing()
 			Fs.push_back(v);
 			f_boundary.push_back(true);
 			f_b++;
-		}
-		else {
+		}else {
 			f_boundary[F_num] = false;
 			f_b--;
 		}
@@ -329,7 +355,7 @@ void MultiResolutionHierarchy::build() {
 		}
 	}
 
-	vnfs.clear();
+	vnfs.clear();// 顶点的邻面
 	vnfs.resize(mV[0].cols());
 	for (uint32_t i = 0; i < mF.cols(); ++i) for (uint32_t j = 0; j < 3; j++) vnfs[mF(j, i)].push_back(i);
 
@@ -363,9 +389,7 @@ void MultiResolutionHierarchy::build() {
 		mL.resize(1);
 		mL[0].resize(mV[0].cols(), mV[0].cols());
 		mL[0].setFromTriplets(triplets.begin(), triplets.end());
-	}
-	else {
-
+	}else {
 		construct_tEs_tFEs(mF, nFes, nEs);
 		//nV_nes, tag boundary V
 		nV_nes.clear(); nV_nes.resize(mV[0].cols());
@@ -474,8 +498,7 @@ void MultiResolutionHierarchy::build() {
 				if (tetMesh()) {
 					n = N.col(e.i0);
 					c = C.col(e.i0);
-				}
-				else {
+				}else {
 					n.normalize();
 					c *= 0.5f;
 				}
@@ -535,23 +558,25 @@ void MultiResolutionHierarchy::build() {
 
 	mQ.resize(mL.size());
 	mO.resize(mL.size());
+	my_mO.resize(mL.size());
 
 	pcg32 rng;
 	if (tetMesh()) {
 		for (uint32_t i = 0; i < mL.size(); ++i) {
 			mQ[i].resize(4, mV[i].cols());
 			mO[i].resize(3, mV[i].cols());
+			my_mO[i].resize(3, mV[i].cols());
 			for (uint32_t j = 0; j < mV[i].cols(); ++j) {
 				mQ[i].col(j) = Quaternion::Random(rng);
 
 				mO[i].col(j) = aabbRand(mAABB, rng);
 			}
 		}
-	}
-	else {
+	}else {
 		for (uint32_t i = 0; i < mL.size(); ++i) {
 			mQ[i].resize(3, mV[i].cols());
 			mO[i].resize(3, mV[i].cols());
+			my_mO[i].resize(3, mV[i].cols());
 
 			for (uint32_t j = 0; j < mV[i].cols(); ++j) {
 				if (i == 0 && nV_boundary_flag[i][j]) {
@@ -612,8 +637,11 @@ void MultiResolutionHierarchy::build() {
 
 	mBVH = new BVH(&mF, &mV[0], mAABB);
 	mBVH->build();
+//	mScale = tet_elen;
 	mScale = diagonalLen * ratio_scale;
 	mInvScale = 1.f / mScale;
+
+	std::cout << "diagonalLen, ratio_scale, mScale: " << diagonalLen << ", " << ratio_scale << ", " << mScale << std::endl;
 
 	sta.tN = mF.cols();
 	sta.tetN = mT.cols();

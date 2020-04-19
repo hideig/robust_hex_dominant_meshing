@@ -89,7 +89,8 @@ protected:
         PositionSingularities,
         Boundary,
         BoundaryWireframe,
-        LayerCount
+        LayerCount,
+		OtherEdge
     };
 	enum Extraction_Condition {
 		ReColor=0,
@@ -112,6 +113,7 @@ protected:
     Button *mSolvePositionBtn;
 	CheckBox *Configlayers[Config_LayerCount];
     Button *mExtractBtn;
+	Button *mCombineBtn;
     CheckBox *mLayers[LayerCount];
 	FloatBox<Float> *mScaleBox;
 
@@ -120,6 +122,7 @@ protected:
 	Button *mOutputBtn;
 	CheckBox *mShow_F_done;
 	CheckBox *mShow_E_done;
+	CheckBox *mShow_OtherE_done;
 
     /* Visualization */
     GLShader mTetShader;
@@ -136,6 +139,8 @@ protected:
 	GLShader mExtractionResultShader_E_done;
 
 	GLShader mExtractionResultShader_F_done;
+
+	GLShader mOtherEdge; // other positions
 
     Vector4f mBaseColor, mSpecularColor;
     Vector4f mBaseColorBoundary, mSpecularColorBoundary;

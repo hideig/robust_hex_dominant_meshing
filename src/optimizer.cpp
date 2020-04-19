@@ -1,5 +1,5 @@
 #include "optimizer.h"
-
+#include "timer.h"
 Optimizer::Optimizer(MultiResolutionHierarchy &mRes)
     : mRes(mRes), mRunning(false), mOptimizeOrientations(false),
       mOptimizePositions(false), mAlignment(true), mRandomization(true), mExtrinsic(true),
@@ -25,7 +25,7 @@ void Optimizer::setOptimizePositions(bool value) {
 
 void Optimizer::run() {
     mRunning = true;
-
+	Timer<> timer;
     while (true) {
         std::lock_guard<ordered_lock> lock(mRes.mutex());
         while (mRunning && (mRes.levels() == 0 || (!mOptimizePositions && !mOptimizeOrientations)))
@@ -35,20 +35,18 @@ void Optimizer::run() {
             mLevel = 0;
 
         if (mOptimizeOrientations) {
-            if (mRes.tetMesh())
-                mRes.smoothOrientationsTet(mLevel, mAlignment, mRandomization);
-            else
+			if (mRes.tetMesh()) 
+				mRes.smoothOrientationsTet(mLevel, mAlignment, mRandomization);
+			else
                 mRes.smoothOrientationsTri(mLevel, mAlignment, mRandomization, mExtrinsic);
         }
 
         if (mOptimizePositions) {
             if (mRes.tetMesh())
-                mRes.smoothPositionsTet(mLevel, mAlignment, mRandomization);
-            else {
+				mRes.smoothPositionsTet(mLevel, mAlignment, mRandomization);
+            else 
                 mRes.smoothPositionsTri(mLevel, mAlignment, mRandomization, mExtrinsic);
-            }
         }
-
         mLevelIterations++;
 
 		if (mLevelIterations >= mMaxIterations) {
@@ -67,10 +65,10 @@ void Optimizer::run() {
 					mRes.prolongPositions(mLevel);
 			}
 		}
-
         if (!mRunning)
             break;
     }
+	timer.endStage();
 }
 void Optimizer::wait() {
 	std::lock_guard<ordered_lock> lock(mRes.mutex());

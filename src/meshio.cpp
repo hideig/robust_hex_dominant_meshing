@@ -4,13 +4,12 @@
 #include <unordered_map>
 #include "timer.h"
 #include <iomanip>
-
+#include "candidate_cell.h"
 template <typename ParseHeader, typename ParseLine>
-void loadTextFile(const std::string &filename, ParseHeader parseHeader,
-                  ParseLine parseLine) {
+void loadTextFile(const std::string &filename, ParseHeader parseHeader, ParseLine parseLine) {
     std::ifstream is(filename);
     if (is.fail())
-        throw std::runtime_error("Unable to open tetgen file \"" + filename + "\"!");
+        throw std::runtime_error("Unable to open tet file \"" + filename + "\"!");
 
     std::string line_str;
     int line = 0, actual_line = 0;
@@ -30,7 +29,7 @@ void loadTextFile(const std::string &filename, ParseHeader parseHeader,
         }
     } catch (const std::exception &e) {
         throw std::runtime_error(
-            "Unable to parse tetgen file \"" + filename + ".node\" (line "
+            "Unable to parse tetgen file \"" + filename
             + std::to_string(actual_line) + "): " + e.what());
     }
 }
@@ -124,7 +123,7 @@ void loadTriMesh(const std::string &filename, MatrixXf &V, MatrixXu &F) {
     p_ply_element element = nullptr;
     uint32_t vertexCount = 0, faceCount = 0;
 
-    /* Inspect the structure of the PLY file, load number of faces if avaliable */
+    /* Inspect the structure of the PLY file, load number of faces if available */
     while ((element = ply_get_next_element(ply, element)) != nullptr) {
         const char *name;
         long nInstances;
@@ -193,7 +192,80 @@ void loadTriMesh(const std::string &filename, MatrixXf &V, MatrixXu &F) {
     ply_close(ply);
     timer.endStage("V=" + std::to_string(V.cols()) + ", F = " + std::to_string(F.cols()));
 }
+void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, MatrixXu &T) {
+	uint32_t vertexCount, faceCount, tetCount, dimension, nodesPerTet, boundaryInfo;
+	Timer<> timer;
+	timer.beginStage("Loading tetrahedral mesh \"" + filename );
+	FILE *fp = std::fopen(filename.c_str(), "r");
+	if (!fp) {
+		std::cout << "Unable to open file " << filename << std::endl;
+		std::cout << strerror(errno) << std::endl;
+		return;
+	}
 
+	char buffer[256];
+	if (!fgets(buffer, sizeof(buffer), fp)) { fclose(fp); return; }
+
+	char str[256];
+	int format;
+	sscanf(buffer, "%s %d", str, &format);
+	uint32_t actualFaceCount = 0, actualTetCount = 0;
+	while (!feof(fp)) {
+		if (!fgets(buffer, 256, fp)) break;
+		if (buffer[0] != '#') { // skip comments and empty lines
+			str[0] = '\0';
+			sscanf(buffer, "%s", str);
+			if (!strncmp(buffer, "Dimension 3", 11)) {
+			}else if (!strcmp(str, "Dimension")) {
+				if (!fgets(buffer, sizeof(buffer), fp)) break;
+			}else if (!strcmp(str, "Vertices")) {
+				if (!fgets(buffer, sizeof(buffer), fp)) break;
+				int nbv;
+				sscanf(buffer, "%d", &nbv);
+				std::cout << nbv << " vertices  ";
+				V.resize(3, nbv);
+				for (int i = 0; i < nbv; i++) {
+					if (!fgets(buffer, sizeof(buffer), fp)) break;
+					int index;
+					double x, y, z;
+					sscanf(buffer, "%lf %lf %lf %d", &x, &y, &z, &index);
+					V.col(index) << x, y, z;
+				}
+			}else if (!strcmp(str, "Triangles")) {
+				if (!fgets(buffer, sizeof(buffer), fp)) break;
+				int nbf;
+				sscanf(buffer, "%d", &nbf);
+				std::cout << nbf << " triangles  ";
+				F.resize(3, nbf);
+				for (int i = 0; i < nbf; i++) {
+					if (!fgets(buffer, sizeof(buffer), fp)) break;
+					int n[3], cl;
+					sscanf(buffer, "%d %d %d %d", &n[0], &n[1], &n[2], &cl);
+					F.col(actualFaceCount++) << n[0], n[1], n[2];
+				}
+			}else if (!strcmp(str, "Tetrahedra")) {
+				if (!fgets(buffer, sizeof(buffer), fp)) break;
+				int nbt;
+				sscanf(buffer, "%d", &nbt);
+				std::cout << nbt << " tetrahedra  ";
+				T.resize(4, nbt);
+				for (int i = 0; i < nbt; i++) {
+					if (!fgets(buffer, sizeof(buffer), fp)) break;
+					int n[4], cl;
+					sscanf(buffer, "%d %d %d %d %d", &n[0], &n[1], &n[2], &n[3], &cl);
+					T.col(actualTetCount++) << n[0], n[1], n[2], n[3];
+				}
+			}
+		}
+	}
+	fclose(fp);
+	F.row(0).swap(F.row(1));
+	F.conservativeResize(3, actualFaceCount);
+
+	timer.endStage("V=" + std::to_string(V.cols()) + ", F = " +
+		std::to_string(F.cols()) + ", T = " +
+		std::to_string(T.cols()));
+}
 void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
 	/// Vertex indices used by the OBJ format
 	struct obj_vertex {
@@ -886,61 +958,61 @@ void write_statistics_TXT(statistics &sta, char * path) {
 	}
 	f.close();
 }
-
-void load_HYBRID_mesh(Mesh &mesh, string path) {
-	string filename = path;
-	FILE *f = fopen(filename.data(), "rt");
-	if (!f) return;
-	/*check(f,"MeshVersionFormatted",1);
-	check(f,"Dimension",3);*/
-
-	int nv, np, nh;
-	fscanf(f, "%d %d %d", &nv, &np, &nh);
-	nh /= 3; // hack, bug in files?
-
-	mesh.V.resize(3, nv);
-	for (int i = 0; i<nv; i++) {
-		Float x, y, z;
-		fscanf(f, "%f %f %f", &x, &y, &z);
-		mesh.V(0, i) = x;
-		mesh.V(1, i) = y;
-		mesh.V(2, i) = z;
-	}
-	mesh.Fs.resize(np);
-	for (int i = 0; i<np; i++) {
-		Hybrid_F &p = mesh.Fs[i];
-		p.id = i;
-		int nw;
-
-		fscanf(f, "%d", &nw);
-		p.vs.resize(nw);
-		for (int j = 0; j<nw; j++) {
-			fscanf(f, "%d", &(p.vs[j]));
-		}
-	}
-	mesh.Hs.resize(nh);
-	for (int i = 0; i<nh; i++) {
-		Hybrid &h = mesh.Hs[i];
-		h.id = i;
-
-		int nf;
-		fscanf(f, "%d", &nf);
-		h.fs.resize(nf);
-
-		for (int j = 0; j<nf; j++) {
-			fscanf(f, "%d", &(h.fs[j]));
-		}
-		
-		int tmp; fscanf(f, "%d", &tmp);
-		for (int j = 0; j<nf; j++) {
-			int s;
-			fscanf(f, "%d", &s);
-		}
-	}
-	for (int i = 0; i<nh; i++) {
-		int tmp;
-		fscanf(f, "%d", &(mesh.Hs[i].hex));
-	}
-
-	fclose(f);
-}
+//
+//void load_HYBRID_mesh(Mesh &mesh, string path) {
+//	string filename = path;
+//	FILE *f = fopen(filename.data(), "rt");
+//	if (!f) return;
+//	/*check(f,"MeshVersionFormatted",1);
+//	check(f,"Dimension",3);*/
+//
+//	int nv, np, nh;
+//	fscanf(f, "%d %d %d", &nv, &np, &nh);
+//	nh /= 3; // hack, bug in files?
+//
+//	mesh.V.resize(3, nv);
+//	for (int i = 0; i<nv; i++) {
+//		Float x, y, z;
+//		fscanf(f, "%f %f %f", &x, &y, &z);
+//		mesh.V(0, i) = x;
+//		mesh.V(1, i) = y;
+//		mesh.V(2, i) = z;
+//	}
+//	mesh.Fs.resize(np);
+//	for (int i = 0; i<np; i++) {
+//		Hybrid_F &p = mesh.Fs[i];
+//		p.id = i;
+//		int nw;
+//
+//		fscanf(f, "%d", &nw);
+//		p.vs.resize(nw);
+//		for (int j = 0; j<nw; j++) {
+//			fscanf(f, "%d", &(p.vs[j]));
+//		}
+//	}
+//	mesh.Hs.resize(nh);
+//	for (int i = 0; i<nh; i++) {
+//		Hybrid &h = mesh.Hs[i];
+//		h.id = i;
+//
+//		int nf;
+//		fscanf(f, "%d", &nf);
+//		h.fs.resize(nf);
+//
+//		for (int j = 0; j<nf; j++) {
+//			fscanf(f, "%d", &(h.fs[j]));
+//		}
+//		
+//		int tmp; fscanf(f, "%d", &tmp);
+//		for (int j = 0; j<nf; j++) {
+//			int s;
+//			fscanf(f, "%d", &s);
+//		}
+//	}
+//	for (int i = 0; i<nh; i++) {
+//		int tmp;
+//		fscanf(f, "%d", &(mesh.Hs[i].hex));
+//	}
+//
+//	fclose(f);
+//}

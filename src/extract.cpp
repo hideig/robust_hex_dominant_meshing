@@ -1724,8 +1724,7 @@ void MultiResolutionHierarchy::tagging_singularities_T_nodes(MatrixXf &V_tagging
 				//if (Vs_nes[F_tag[i][j]].size() == 3 && !mV_B_flag[F_tag[i][j]]) t_candidates.push_back(j);
 				if (mV_B_flag[F_tagging[i][j]]) {
 					if (Vs_nes[F_tagging[i][j]].size() == 3 || Vs_nes[F_tagging[i][j]].size() == 2) t_candidates.push_back(j);
-				}
-				else {
+				}else {
 					if (Vs_nes[F_tagging[i][j]].size() == 3) t_candidates.push_back(j);
 				}
 			}
@@ -1759,6 +1758,7 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 	Result_edges.resize(6, 2 * Es_to_render.size());
 	//for rendering edges
 	for (uint32_t i = 0; i < Es_to_render.size(); ++i) {
+	//for (uint32_t i = 0; i < 1000; ++i) {
 		Vector3f color;
 		if (std::get<4>(Es_to_render[i]) == Edge_tag::R)
 			color = Vector3f(1, 0, 0);
@@ -1767,7 +1767,7 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 		else if (std::get<4>(Es_to_render[i]) == Edge_tag::D)
 			color = Vector3f(0, 1, 0);
 		else if (std::get<4>(Es_to_render[i]) == Edge_tag::H)
-		color = Vector3f(1, 1, 1);
+			color = Vector3f(1, 1, 1);
 
 		uint32_t i0 = std::get<0>(Es_to_render[i]), i1 = std::get<1>(Es_to_render[i]);
 
@@ -1778,7 +1778,7 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 void MultiResolutionHierarchy::composit_edges_centernodes_triangles(std::vector<std::vector<uint32_t>> &Actual_Fs, MatrixXf &nodes, MatrixXf &Result_edges, MatrixXf &center_nodes, MatrixXu &Triangles)
 {
 	//for rendering edges
-	int num_e = 0;
+	/*int num_e = 0;
 	for (uint32_t f = 0; f < Actual_Fs.size(); ++f) {
 		num_e += Actual_Fs[f].size();
 	}
@@ -1793,19 +1793,20 @@ void MultiResolutionHierarchy::composit_edges_centernodes_triangles(std::vector<
 			Result_edges.col((num_e) * 2 + 0) << nodes.col(i0), color;
 			Result_edges.col((num_e++) * 2 + 1) << nodes.col(i1), color;
 		}
-	}
+	}*/
 	//for rendering faces
+	int si = Actual_Fs.size();
 	uint32_t col_ = 0;
-	for (int i = 0; i < Actual_Fs.size(); i++)
+	for (int i = 0; i < si; i++)
 		col_ += Actual_Fs[i].size();
 	Triangles.resize(3, col_);
 	Triangles.setZero();
-	center_nodes.resize(3, nodes.cols() + Actual_Fs.size());
+	center_nodes.resize(3, nodes.cols() + si);
 	center_nodes.setZero();
 	center_nodes.block(0, 0, 3, nodes.cols()) = nodes;
 
 	col_ = 0;
-	for (int i = 0; i < Actual_Fs.size(); i++)
+	for (int i = 0; i < si; i++)
 	{
 		int f_size = Actual_Fs[i].size();
 		Vector3f center;

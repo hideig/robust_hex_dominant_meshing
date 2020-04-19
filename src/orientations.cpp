@@ -78,12 +78,12 @@ void MultiResolutionHierarchy::smoothOrientationsTri(uint32_t l, bool alignment,
 }
 
 void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment, bool randomization) {
-    const MatrixXf &N = mN[l];
+	//Timer<> timer;
+	//timer.beginStage("Beging Tet Orientation Optimization!!");
+	
+	const MatrixXf &N = mN[l];
     const SMatrix &L = mL[l];
     MatrixXf &Q = mQ[l];
-
-    Timer<> timer;
-
     double error = 0;
     int nLinks = 0;
     MatrixXf Q_new(Q.rows(), Q.cols());
@@ -147,7 +147,7 @@ void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment,
     );
 #endif
     mOrientationIterations++;
-    Q = std::move(Q_new);
+	Q = std::move(Q_new);
 }
 
 void MultiResolutionHierarchy::prolongOrientations(int level) {
@@ -257,37 +257,36 @@ void MultiResolutionHierarchy::detectOrientationSingularitiesTet() {
             }
 
 
-            if (!rot1.isIdentity()) {
-                face_center *= 1.f / 3.f;
+			if (!rot1.isIdentity()) {
+				face_center *= 1.f / 3.f;
 
-                Vector3f tet_center =
-                    0.25f * (V.col(mT(0, t)) + V.col(mT(1, t)) +
-                             V.col(mT(2, t)) + V.col(mT(3, t)));
-                Quaternion q0 = Q.col(mT(face[0], t));
-                Quaternion q1 = Q.col(mT(face[1], t));
-                Quaternion q2 = Q.col(mT(face[2], t));
+				Vector3f tet_center =
+					0.25f * (V.col(mT(0, t)) + V.col(mT(1, t)) +
+						V.col(mT(2, t)) + V.col(mT(3, t)));
+				Quaternion q0 = Q.col(mT(face[0], t));
+				Quaternion q1 = Q.col(mT(face[1], t));
+				Quaternion q2 = Q.col(mT(face[2], t));
 
-                Vector3f normal =
-                    Vector3f(V.col(mT(face[1], t)) - V.col(mT(face[0], t))).cross(
-                    Vector3f(V.col(mT(face[2], t)) - V.col(mT(face[0], t)))).normalized();
+				Vector3f normal =
+					Vector3f(V.col(mT(face[1], t)) - V.col(mT(face[0], t))).cross(
+						Vector3f(V.col(mT(face[2], t)) - V.col(mT(face[0], t)))).normalized();
 
-                Vector3f rot_axis1 = q0.toMatrix().col(rot1.preservedAxis()) * (rot1.index > 6 ? 1 : -1);
-                Vector3f rot_axis2 = q1.toMatrix().col(rot2.preservedAxis()) * (rot2.index > 6 ? 1 : -1);
-                Vector3f rot_axis3 = q2.toMatrix().col(rot3.preservedAxis()) * (rot3.index > 6 ? 1 : -1);
+				Vector3f rot_axis1 = q0.toMatrix().col(rot1.preservedAxis()) * (rot1.index > 6 ? 1 : -1);
+				Vector3f rot_axis2 = q1.toMatrix().col(rot2.preservedAxis()) * (rot2.index > 6 ? 1 : -1);
+				Vector3f rot_axis3 = q2.toMatrix().col(rot3.preservedAxis()) * (rot3.index > 6 ? 1 : -1);
 
-                Vector3f rot_axis = (rot_axis1 + rot_axis2 + rot_axis3).normalized();
+				Vector3f rot_axis = (rot_axis1 + rot_axis2 + rot_axis3).normalized();
 
-                Vector3f color = rot_axis.dot(normal) > 0 ? Vector3f::UnitX() : Vector3f::UnitZ();
+				Vector3f color = rot_axis.dot(normal) > 0 ? Vector3f::UnitX() : Vector3f::UnitZ();
 
-                if (color == Vector3f::UnitZ()) {
+				if (color == Vector3f::UnitZ()) {
 					;/* std::cout << endl;
-                    std::cout 
-                        << rot_axis1.dot(normal) << " vs "
-                        << rot_axis2.dot(normal) << " vs "
-                        << rot_axis3.dot(normal) << std::endl;*/
-                }
-				if (rot1.index < 4 || rot1.index > 9)
-					;
+					std::cout
+						<< rot_axis1.dot(normal) << " vs "
+						<< rot_axis2.dot(normal) << " vs "
+						<< rot_axis3.dot(normal) << std::endl;*/
+				}
+				if (rot1.index < 4 || rot1.index > 9) {}
 
                 tbb::spin_mutex::scoped_lock guard(mutex);
                 if (singularityCount + 1 > S.cols())

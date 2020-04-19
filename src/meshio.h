@@ -1,9 +1,10 @@
 #pragma once
 #include "common.h"
-#include "global_types.h"
 
+//extern void myLoadTetMesh(MatrixXf &V, MatrixXu &F, MatrixXu &T, const TetMeshForCombining &tets);
 extern void loadTetMesh(const std::string &prefix, MatrixXf &V, MatrixXu &F, MatrixXu &T);
 extern void loadTriMesh(const std::string &filename, MatrixXf &V, MatrixXu &F);
+extern void myLoadTetMesh(const std::string &prefix, MatrixXf &V, MatrixXu &F, MatrixXu &T);
 extern void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V);
 extern void load_off(const std::string &filename, std::vector<std::vector<uint32_t>> &F, MatrixXf &V);
 extern void loadTetMesh_VTK(const std::string &prefix, MatrixXf &V, MatrixXu &F, MatrixXu &T);
@@ -33,5 +34,5 @@ extern void write_Vertex_Types_TXT(std::vector<int> &V_types, char * path);
 extern void write_statistics_TXT(statistics &sta, char * path);
 
 
-extern void load_HYBRID_mesh(Mesh &mesh, string path);
+//extern void load_HYBRID_mesh(Mesh &mesh, string path);
 

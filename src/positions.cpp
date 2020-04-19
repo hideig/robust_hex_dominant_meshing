@@ -93,7 +93,6 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
 
     Timer<> timer;
     //timer.beginStage("Smoothing orientations at level " + std::to_string(l));
-
     double error = 0;
     int nLinks = 0;
     MatrixXf O_new(O.rows(), O.cols());
@@ -113,8 +112,7 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
 				//int nLinksLocal = 0;
 				//for (uint32_t k = 0; k <L.outerSize(); ++k) {
 				//	
-					SMatrix::InnerIterator it(L, k);
-
+				SMatrix::InnerIterator it(L, k);
                 uint32_t i = it.row();
 
                 const Quaternion q_i = Q.col(i);
@@ -124,14 +122,12 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
                 neighbors.clear();
                 for (; it; ++it) {
                     uint32_t j = it.col();
-                    if (i == j)
-                        continue;
+                    if (i == j)continue;
                     neighbors.push_back(std::make_pair(j, it.value()));
                 }
 
                 if (randomization && neighbors.size() > 0)
-                    pcg32(mPositionIterations, k)
-                        .shuffle(neighbors.begin(), neighbors.end());
+                    pcg32(mPositionIterations, k).shuffle(neighbors.begin(), neighbors.end());
 
                 Float weightSum = 0.f;
                 for (auto n : neighbors) {
@@ -158,49 +154,40 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
                 }
 
 				o_i = findClosest(o_i, q_i, v_i, mScale, mInvScale);
-
 				//if (l == 200000 && n_i != Vector3f::Zero()) {
 				//	Vector3d v = o_i.cast<double>();
-				//	//cout << "phone" << endl;
+				//	cout << "phone" << endl;
 				//	Vector3d interpolP, interpolN;
 				//	vector<uint32_t>  tids = vnfs[i];
 
-				//	//tbb::spin_mutex::scoped_lock guard(mutex);
-				//	//if (phong_projection(tids, vnfs, v, interpolP, interpolN)) {
-				//		//o_i = interpolP.cast<Float>();
-				//		//cout << "projected" << endl;
-				//	//}
-
+				//	tbb::spin_mutex::scoped_lock guard(mutex);
+				//	if (phong_projection(tids, vnfs, v, interpolP, interpolN)) {
+				//		o_i = interpolP.cast<Float>();
+				//		cout << "projected" << endl;
+				//	}
 				//}
 				//if (n_i != Vector3f::Zero())
 				//	o_i -= n_i.dot(o_i - v_i) * n_i;
 				O_new.col(i) = o_i;
-
 			}
             tbb::spin_mutex::scoped_lock guard(mutex);
             error += errorLocal;
             nLinks += nLinksLocal;
-
 #if 1
         }
     );
 #endif
-
     //timer.endStage("E = " + std::to_string(error / nLinks));
     mOrientationIterations++;
     O = std::move(O_new);
 }
 
-
 void MultiResolutionHierarchy::prolongPositions(int level) {
-    
 	const SMatrix &P = mP[level];
 	for (int k = 0; k < P.outerSize(); ++k) {
 		SMatrix::InnerIterator it(P, k);
 		for (; it; ++it) {
-
-			Vector3f o_i = mO[level + 1].col(it.col());;
-			
+			Vector3f o_i = mO[level + 1].col(it.col());
 			Vector3f v_i = mV[level].col(it.row());
 			Vector3f n_i = mN[level].col(it.row());
 
@@ -211,8 +198,7 @@ void MultiResolutionHierarchy::prolongPositions(int level) {
 				}
 				o_i -= n_i.dot(o_i - v_i) * n_i;
 				mO[level].col(it.row()) = o_i;
-			}
-			else {
+			}else {
 				Quaternion q_i = mQ[level].col(it.row());
 				if (nV_boundary_flag[level][it.row()] && n_i != Vector3f::Zero()) {
 					Vector3f c_i = mC[level].col(it.row());

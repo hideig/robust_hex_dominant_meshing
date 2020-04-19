@@ -255,24 +255,20 @@ void orient_triangle_mesh_index(MatrixXf &Vs, MatrixXu &Ts)
 		direct_edges.insert(yb);
 		direct_edges.insert(yc);
 
-		for (int i = 0; i<2; i++)
-		{
-			if (!whe_tri_in[edge_2_neb_tri[xa][i]])
-			{
+		for (int i = 0; i<2; i++){
+			if (!whe_tri_in[edge_2_neb_tri[xa][i]]){
 				queue_loop.push(edge_2_neb_tri[xa][i]);
 
 				whe_tri_in[edge_2_neb_tri[xa][i]] = true;
 			}
 
-			if (!whe_tri_in[edge_2_neb_tri[xb][i]])
-			{
+			if (!whe_tri_in[edge_2_neb_tri[xb][i]])	{
 				queue_loop.push(edge_2_neb_tri[xb][i]);
 
 				whe_tri_in[edge_2_neb_tri[xb][i]] = true;
 			}
 
-			if (!whe_tri_in[edge_2_neb_tri[xc][i]])
-			{
+			if (!whe_tri_in[edge_2_neb_tri[xc][i]])	{
 				queue_loop.push(edge_2_neb_tri[xc][i]);
 
 				whe_tri_in[edge_2_neb_tri[xc][i]] = true;
@@ -290,8 +286,7 @@ void orient_triangle_mesh_index(MatrixXf &Vs, MatrixXu &Ts)
 	ori.push_back(0);
 	ori.push_back(0);
 
-	for (int i = 0; i<nf.size(); i++)
-	{
+	for (int i = 0; i<nf.size(); i++){
 		res += uctet(ori, p[nf[i][0]], p[nf[i][1]], p[nf[i][2]]);
 	}
 

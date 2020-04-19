@@ -13,9 +13,11 @@
 #include <queue>
 #include "global_types.h"
 #include <set>
+#include "tet_mesh.h"
 
 using nanogui::Serializer;
 using namespace std;
+using namespace HXTCombine;
 class BVH;
 
 struct MeshStats {
@@ -34,7 +36,7 @@ struct MeshStats {
 class MultiResolutionHierarchy {
 public:
     MultiResolutionHierarchy();
-
+	//bool myLoad(const TetMeshForCombining &tets);
     bool load(const std::string &filename);
 	MeshStats compute_mesh_stats(const MatrixXu &F_, const MatrixXf &V_, bool deterministic = false);
 
@@ -60,6 +62,9 @@ public:
 
     MatrixXf &O(uint32_t i = 0) { return mO[i]; }
     const MatrixXf &O(uint32_t i = 0) const { return mO[i]; }
+
+	MatrixXf &my_O(uint32_t i = 0) { return my_mO[i]; }
+	const MatrixXf &my_O(uint32_t i = 0) const { return my_mO[i]; }
 
     MatrixXf &C(uint32_t i = 0) { return mC[i]; }
     const MatrixXf &C(uint32_t i = 0) const { return mC[i]; }
@@ -103,12 +108,13 @@ public:
 	Float compute_cost_edge2D_angle(int32_t v0, int32_t v1, vector<uint32_t> &vs, MatrixXf &V_);
 
 
-	bool meshExtraction3D();
+	//bool meshExtraction3D();
+	bool meshExtraction3D(MultiResolutionHierarchy& mRes);
 	void construct_Es_Fs_Polyhedral();
 	void orient_hybrid_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF, vector<vector<uint32_t>> &HP, vector<vector<bool>> &HPF_flag);
 	void swap_data3D();
 
-		bool edge_tagging3D(vector<uint32_t> &ledges);
+		bool edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges);
 		void tagging_collapseTet();
 		bool split_long_edge3D(vector<uint32_t> &ledges);
 		bool split_face3D(bool red_edge);
@@ -141,6 +147,11 @@ public:
 		mScale = diagonalLen * scale; 
 		mInvScale = 1.f / mScale;
 		tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+
+		//ratio_scale = scale; 
+		//tet_elen = ratio_scale;
+		//mScale = scale;
+		//mInvScale = 1.f / mScale;
 	}
 
     ordered_lock &mutex() const { return mMutex; }
@@ -152,17 +163,22 @@ public:
     std::vector<MatrixXf> mN;
     std::vector<MatrixXf> mQ;
     std::vector<MatrixXf> mO;
+	std::vector<MatrixXf> my_mO;
     std::vector<MatrixXf> mC;
     std::vector<SMatrix> mL;
     std::vector<SMatrix> mP;
     MatrixXu mF;
     MatrixXu mT;
 
+	MatrixXf mVv_tag;
+	std::vector<tuple_E> mpEes;
+	std::vector<tuple_E> mpEess;
+	std::vector<std::vector<uint32_t>> Ff_tag;
 	std::vector<std::vector<uint32_t>> nFes;
 	std::vector<tuple_E> nEs;
 	vector<vector<bool>> nV_boundary_flag;
 	std::vector<std::vector<uint32_t>> nV_nes;
-
+	std::vector<tuple_E> otheredges;
 
 	vector<vector<uint32_t>> vnfs;
 	Float quadricW = 1;
@@ -214,4 +230,7 @@ public:
 	MatrixXf E_final_rend;
 	MatrixXu F_tag_rend;
 	MatrixXu F_final_rend;
+	MatrixXf Other_edge_rend;
+
+//	HXTCombineCellStore combRes;
 };

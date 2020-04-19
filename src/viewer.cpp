@@ -3,6 +3,32 @@
 #include "timer.h"
 #include "bvh.h"
 #include <nanogui/serializer/opengl.h>
+#include "hxt_combine_cpp_api.h"
+#include "tet_mesh.h"
+using namespace HXTCombine;
+//int my_process(const MatrixXf &V_, const MatrixXu &F_, const MatrixXu &T_);
+int my_process(const MultiResolutionHierarchy &mRes, HXTCombineCellStore* combineRes);
+void my_show_edges(MatrixXf &Result_Vs, std::vector<tuple_E> &Es_to_render, MatrixXf &Result_edges)
+{
+	Result_edges.resize(6, 2 * Es_to_render.size());
+	//for rendering edges
+	for (uint32_t i = 0; i < Es_to_render.size(); ++i) {
+		Vector3f color;
+		if (std::get<4>(Es_to_render[i]) == Edge_tag::R)
+			color = Vector3f(1, 0, 0);
+		else if (std::get<4>(Es_to_render[i]) == Edge_tag::B)
+			color = Vector3f(0, 0, 1);
+		else if (std::get<4>(Es_to_render[i]) == Edge_tag::D)
+			color = Vector3f(0, 1, 0);
+		else if (std::get<4>(Es_to_render[i]) == Edge_tag::H)
+			color = Vector3f(1, 1, 1);
+
+		uint32_t i0 = std::get<0>(Es_to_render[i]), i1 = std::get<1>(Es_to_render[i]);
+
+		Result_edges.col(i * 2 + 0) << Result_Vs.col(i0), color;
+		Result_edges.col(i * 2 + 1) << Result_Vs.col(i1), color;
+	}
+}
 
 Viewer::Viewer(std::string &filename, bool fullscreen)
     : Screen(Vector2i(1280, 960), "Robust Quad/Hex-dominant Meshes", true),
@@ -34,6 +60,9 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     mPositionFieldShader.init("position_field_shader",
         (const char *) shader_position_field_vert,
         (const char *) shader_position_field_frag);
+	//mOtherEdge.init("other_positions",
+	//	(const char *)shader_position_field_vert,
+	//	(const char *)shader_position_field_frag);
 
     mOrientationSingularityShaderTet.init("orientation_singularity_shader_tet",
         (const char *) shader_singularity_tet_vert,
@@ -70,6 +99,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		(const char *)shader_singularity_tet_vert,
 		(const char *)shader_singularity_tet_frag);
 
+
+
 	mExtractionResultShader_F_done.init("Shader_F_local",
 		(const char *)shader_mesh_vert,
 		(const char *)shader_mesh_frag,
@@ -92,8 +123,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	auto ctx = nvgContext();
 	try {
 		mExampleImages = nanogui::loadImageDirectory(ctx, "resources");
-	}
-	catch (const std::runtime_error &e) {
+	}catch (const std::runtime_error &e) {
 	}
 	mExampleImages.insert(mExampleImages.begin(),
 		std::make_pair(nvgImageIcon(ctx, loadmesh), ""));
@@ -127,7 +157,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 #else
 			filename2 = nanogui::file_dialog({
-				{ "obj", "Wavefront OBJ" }
+				{ "obj", "Wavefront mesh" }
 			}, false);
 #endif
 			if (filename2 == "")
@@ -179,8 +209,6 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mScaleBox->setAlignment(TextBox::Alignment::Right);
 	mScaleBox->setId("outputscale");
 
-
-
 //2D&3D
 	Widget *statePanel = new Widget(window);
 	statePanel->setLayout(new BoxLayout(Orientation::Horizontal, nanogui::Alignment::Middle, 0, 5));
@@ -210,21 +238,22 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mPositionFieldShader.bind();
 		mPositionFieldShader.uploadAttrib("o", mRes.O());
+		mOtherEdge.bind();
+		mOtherEdge.uploadAttrib("o", mRes.my_O());
 
 		mLayers[Layers::Boundary]->setChecked(true);
 		mLayers[Layers::PositionField]->setChecked(true);
+
+	//	mLayers[Layers::OtherEdge]->setChecked(true);
 	});
-	
+
 	mTmeshingBtn = new Button(statePanel, "Volume", ENTYPO_ICON_FLASH);
 	mTmeshingBtn->setBackgroundColor(Color(0, 0, 255, 25));
 	mTmeshingBtn->setFlags(Button::Flags::ToggleButton);
 	mTmeshingBtn->setChangeCallback([&](bool value) {
 		mRes.tet_meshing();
-
 		mRes.build();
-
 		mTetShader.bind();
-
 		MatrixXf vertexColors = MatrixXf::Zero(4, mRes.vertexCount());
 		mTetShader.uploadAttrib("position", mRes.V());
 		mTetShader.uploadIndices(mRes.T());
@@ -241,10 +270,142 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mPositionFieldShader.bind();
 		mPositionFieldShader.uploadAttrib("o", mRes.O());
+	    mOtherEdge.bind();
+		mOtherEdge.uploadAttrib("o", mRes.my_O());
 
 		mLayers[Layers::Boundary]->setChecked(true);
 		mLayers[Layers::PositionField]->setChecked(true);
+		//mLayers[Layers::OtherEdge]->setChecked(true);
+		/*
+		std::cout << "------------------- my_process ----------------" << mRes.mScale << std::endl;
+		
+		MeshStore ioMesh;
+		myReadFileMESH(mRes.mV[0], mRes.mF, mRes.mT, ioMesh);
+		auto start0 = std::chrono::high_resolution_clock::now();
+
+		TetMeshForCombining tets(&ioMesh);
+
+		auto finish0 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> t_mesh(finish0 - start0);
+		std::cout << "Mesh structure built in " << t_mesh.count() << " seconds" << std::endl;
+
+		auto start = std::chrono::high_resolution_clock::now();
+
+		HXTCombineCellStore TheResult(tets);
+
+		int hexFlag = 1;
+		int prismFlag = 0, pyramidFlag = 0;
+		double minQuality = 0.;
+		if (hexFlag) {
+			TheResult.computeHexes(minQuality);
+			auto finish = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double> t0(finish - start);
+			std::cout << TheResult.hexes().size() << " potential hexes computed in " << t0.count() << " seconds" << std::endl;
+		}
+
+		if (prismFlag) {
+			auto start = std::chrono::high_resolution_clock::now();
+			TheResult.computePrisms(minQuality);
+			auto finish = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double> tPrism(finish - start);
+			std::cout << TheResult.prisms().size() << " potential prisms computed in " << tPrism.count() << " seconds" << std::endl;
+		}
+
+		if (pyramidFlag) {
+			auto start = std::chrono::high_resolution_clock::now();
+			TheResult.computePyramids(minQuality);
+			auto finish = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double> tPyramid(finish - start);
+			std::cout << TheResult.pyramids().size() << " potential pyramids computed in " << tPyramid.count() << " seconds" << std::endl;
+		}
+
+		auto startSelect = std::chrono::high_resolution_clock::now();
+
+		std::array<bool, 4> cellTypes{ bool(hexFlag), bool(prismFlag), bool(pyramidFlag), true };
+		TheResult.selectCellsGreedyLocal(cellTypes);
+		//TheResult.selectCellsGreedy(cellTypes);
+		auto endSelect = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> ts(endSelect - startSelect);
+		if (hexFlag) std::cout << nbTrueValues(TheResult.selectedHexes()) << " selected hexes" << std::endl;
+		if (prismFlag)   std::cout << nbTrueValues(TheResult.selectedPrisms()) << " selected prisms" << std::endl;
+		if (pyramidFlag) std::cout << nbTrueValues(TheResult.selectedPyramids()) << " selected pyramids" << std::endl;
+		std::cout << nbTrueValues(TheResult.selectedTets()) << " tetrahedra remain" << std::endl;
+		std::cout << "Timings cell selection " << ts.count() << "seconds" << std::endl;
+
+		 //初始化 mpEs， mV_tag， F_tag;
+		unsigned int num = TheResult.mesh_.nbVertices();
+		mRes.mVv_tag.resize(3, num);
+		for (uint32_t i = 0; i < num; ++i) {
+			mRes.mVv_tag(0, i) = TheResult.mesh_.point(i)[0];
+			mRes.mVv_tag(1, i) = TheResult.mesh_.point(i)[1];
+			mRes.mVv_tag(2, i) = TheResult.mesh_.point(i)[2];
+		}
+
+		const TetMeshForCombining& mesh_= TheResult.mesh_;
+		unsigned int edgeIndex = 0;
+		//// TETS 
+		
+		for (unsigned int t = 0; t < mesh_.nbTets(); ++t) {
+			unsigned int v0, v1, v2, v3;
+			if (!((TheResult.selectedCells_[3])[t])) continue;
+			else {
+				v0 = mesh_.vertex(t, 0);
+				v1 = mesh_.vertex(t, 1);
+				v2 = mesh_.vertex(t, 2);
+				v3 = mesh_.vertex(t, 3);
+			}
+			//v0, v1, boundary, energy, color, edge index, xy/yz/xz plane, timestamp
+			mRes.mpEes.push_back(std::make_tuple(v0, v1, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
+			mRes.mpEes.push_back(std::make_tuple(v1, v2, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
+			mRes.mpEes.push_back(std::make_tuple(v2, v3, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
+			mRes.mpEes.push_back(std::make_tuple(v3, v0, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
+		}
+		// OTHER CELLS
+		for (unsigned int type = 0; type + 1 < cellTypes.size(); ++type) {
+			if (!cellTypes[type]) continue;
+			const std::vector<HXTCombineCell>& cells = TheResult.cells_[type];
+			const std::vector<bool>& selected = TheResult.selectedCells_[type];
+			for (unsigned int i = 0; i < cells.size(); ++i) {
+				if (selected[i]) {
+					unsigned int v[8];
+					if (cells[i].isHex()) {
+						for (unsigned int j = 0; j < 8; j++) {
+							v[j] = cells[i].vertex(j);
+						}
+						for (unsigned int j = 0; j < 7; ++j) {
+							for (unsigned int k = j + 1; k < 8; ++k) {
+								bindex edge(v[j], v[k]);
+								if (isEdge(cells[i], edge)) {
+									mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, Edge_tag::B, edgeIndex++, -1, 0));
+									//mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, edgeIndex % 4, edgeIndex++, -1, 0));
+								}
+							}
+						}
+
+						for (unsigned int j = 0; j < 16; ++j) {
+							for (unsigned int j1 = j + 1; j1 < 16; ++j1) {
+								for (unsigned int j2 = j1 + 1; j2 < 16; ++j2) {
+									for (unsigned int j3 = j2 + 1; j3 < 16; ++j3) {
+										quadindex facet(v[j%8], v[j1%8], v[j2%8], v[j3%8]);
+										if (isQuadFacet(cells[i], facet)) {
+											mRes.Ff_tag.push_back(std::vector<uint32_t>{v[j%8], v[j1%8], v[j2%8], v[j3%8]});
+										}
+									}
+								}
+							}
+						}
+
+					}else if (cells[i].isPrism()) {
+					}else if (cells[i].isPyramid()) {
+					}
+				}
+			}
+		}
+		*/
+
 	});
+
+
 //Rosy
     mSolveOrientationBtn = new Button(window, "Rosy", ENTYPO_ICON_FLASH);
     mSolveOrientationBtn->setBackgroundColor(Color(0, 0, 255, 25));
@@ -256,9 +417,12 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
         mLayers[Layers::OrientationField]->setChecked(true);
         mLayers[Layers::OrientationSingularities]->setChecked(true);
         mLayers[Layers::PositionField]->setChecked(false);
+		//mLayers[Layers::OtherEdge]->setChecked(false);
         mLayers[Layers::PositionSingularities]->setChecked(false);
         if (value == false)
             updateOrientationSingularities();
+
+		std::cout << "_Rosy_______________mscale: " << mRes.mScale << std::endl;
     });
 //Posy
 	mSolvePositionBtn = new Button(window, "Posy", ENTYPO_ICON_FLASH);
@@ -272,37 +436,39 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
         mLayers[Layers::OrientationField]->setChecked(false);
         mLayers[Layers::OrientationSingularities]->setChecked(false);
         mLayers[Layers::PositionField]->setChecked(true);
+		//mLayers[Layers::OtherEdge]->setChecked(true);
         mLayers[Layers::PositionSingularities]->setChecked(true);
         if (value == false)
             updatePositionSingularities();
+
+		std::cout << "_Posy_______________mscale: " << mRes.mScale << std::endl;
     });
 //Extraction
     mExtractBtn = new Button(window, "Extract", ENTYPO_ICON_FLASH);
     mExtractBtn->setBackgroundColor(Color(0, 255, 0, 25));
     mExtractBtn->setCallback([&]() {
 		if (!mRes.tetMesh()) {
-
 			mRes.re_color = true;
 			mRes.doublets = true;
 			mRes.splitting = true;
 			mRes.triangles = false;//true;
 			mRes.decomposes = true;
-
 			mRes.meshExtraction2D();
-		}
-		else{
+		}else{
 			mRes.re_color = true;
 			mRes.splitting = true;
 			mRes.doublets = false;
 			mRes.triangles = false;
 			mRes.decomposes = false;
-			mRes.meshExtraction3D();
+			//mRes.meshExtraction3D();
+			mRes.meshExtraction3D(mRes);
 		}
 		mLayers[PositionSingularities]->setChecked(false);
 		mLayers[Layers::PositionField]->setChecked(false);
 		mLayers[Layers::Boundary]->setChecked(false);
 		mLayers[OrientationSingularities]->setChecked(false);
 		mLayers[Layers::OrientationField]->setChecked(false);
+		//mLayers[Layers::OtherEdge]->setChecked(false);
 
 		mExtractionResultShader_F_done.bind();
 		mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
@@ -314,7 +480,38 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mExtractionResultShader_E_done.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
 		mExtractionResultShader_E_done.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
 		mShow_E_done->setChecked(true);
+
 	});
+
+	// my Combine Extraction
+	mCombineBtn = new Button(window, "Combine", ENTYPO_ICON_FLASH);
+	mCombineBtn->setBackgroundColor(Color(0, 255, 0, 25));
+	mCombineBtn->setCallback([&]() {
+		// 显示combine的结果
+		std::cout << "----------------- combineShow ---------------- "  << std::endl;
+
+		mRes.E_final_rend.setZero();
+		mRes.E_final_rend.resize(6, 2 * mRes.mpEes.size());
+		mRes.composit_edges_colors(mRes.mVv_tag, mRes.mpEes, mRes.E_final_rend);
+	//	mRes.composit_edges_colors(mRes.mVv_tag, mRes.mpEes, mRes.E_final_rend);
+	//	mRes.composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, mRes.E_final_rend, mRes.mV_final_rend, mRes.F_final_rend);
+		
+		mLayers[PositionSingularities]->setChecked(false);
+		mLayers[Layers::PositionField]->setChecked(false);
+		mLayers[Layers::Boundary]->setChecked(false);
+		mLayers[OrientationSingularities]->setChecked(false);
+		mLayers[Layers::OrientationField]->setChecked(false);
+		mExtractionResultShader_F_done.bind();
+		mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
+		mExtractionResultShader_F_done.uploadIndices(mRes.F_final_rend);
+		mShow_F_done->setChecked(true);
+		auto const &R4 = mRes.E_final_rend;
+		mExtractionResultShader_E_done.bind();
+		mExtractionResultShader_E_done.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
+		mExtractionResultShader_E_done.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
+		mShow_E_done->setChecked(true);
+	});
+
 
  	//Config Layers
 	PopupButton *openBtn3 = new PopupButton(window, "Config Layers");
@@ -341,6 +538,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mLayers[Layers::PositionSingularities] = new CheckBox(popup, "Position singularities");
 	mLayers[Layers::Boundary] = new CheckBox(popup, "Boundary");
 	mLayers[Layers::BoundaryWireframe] = new CheckBox(popup, "Boundary wireframe");
+	mLayers[Layers::OtherEdge] = new CheckBox(popup, "Other positions");
 
 	ctr = 0;
 	for (auto l : mLayers) {
@@ -360,8 +558,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mEdgeTagging->setCallback([&](bool value) {
 		if (!mRes.tetMesh())
 			mRes.init_edge_tagging2D();
-		else
-		{
+		else{
 			mRes.init_edge_tagging3D();
 		}
 		auto const &R = mRes.E_rend;
@@ -409,8 +606,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 			sprintf(patho, "%s%s", filename.c_str(), "_V_flag.txt");
 			write_Vertex_Types_TXT(mRes.V_flag, patho);
 #endif		
-		}
-		else {
+		}else {
 			sprintf(patho, "%s%s", filename.c_str(), ".HYBRID");
 			write_volume_mesh_HYBRID(mRes.mV_tag, mRes.F_tag, mRes.P_tag, mRes.Hex_flag, mRes.PF_flag, patho);
 		}
@@ -614,6 +810,7 @@ void Viewer::drawContents() {
 
 	mPositionFieldShader.bind();
 	mPositionFieldShader.uploadAttrib("o", mRes.O());
+	//mPositionFieldShader.uploadAttrib("o", mRes.my_O());
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
@@ -651,7 +848,12 @@ void Viewer::drawContents() {
 		mPositionFieldShader.setUniform("split", mSplit, false);
 		mPositionFieldShader.drawArray(GL_POINTS, 0, mRes.vertexCount());
 	}
-
+	//if (mLayers[OtherEdge]->checked()) {
+	//	mOtherEdge.bind();
+	//	mOtherEdge.setUniform("mvp", mvp);
+	//	mOtherEdge.setUniform("split", mSplit, false);
+	//	mOtherEdge.drawArray(GL_POINTS, 0, mRes.vertexCount());
+	//}
 	if (mLayers[OrientationSingularities]->checked()) {
 		auto &shader = mRes.tetMesh() ? mOrientationSingularityShaderTet : mOrientationSingularityShaderTri;
 		shader.bind();

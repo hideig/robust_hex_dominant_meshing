@@ -61,11 +61,11 @@ public:
 		b[0] = (-2.0)*p[0];
 		b[1] = (-2.0)*p[1];
 		b[2] = (-2.0)*p[2];
-		c    = p.dot(p); 
+		c = p.dot(p); 
   }
 
-    // inits the quadric to be the wieghted distance:
-    // apply(x) = sqrardDistanceFromPoint * weight + squaredDistFromPlane
+    // inits the quadric to be the weighted distance:
+    // apply(x) = squardDistanceFromPoint * weight + squaredDistFromPlane
     // use small weight! 0.001.  ACtually you are using FLOATS so maybe not too little 0.001 is fine
   void initByPointAndNormal(const Vector3f & p, const Vector3f & n, Scalar weight ){
         initByPoint( p );
@@ -81,7 +81,7 @@ public:
         (maybe, debug: verify that apply(vertexPos) == 0 )
         For internal points: use 0 as normal. 
      3) when collapse v0 and v1 into v_new
-        v_new.quadric = v0 + v1   // no wiughting acutally
+        v_new.quadric = v0 + v1   // no weighting actually
         // put the vertex pos in the minimum of the quadric:
         v_new.quadric.getMinimum( v_new.pos );
     DONE

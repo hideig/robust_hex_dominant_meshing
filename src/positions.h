@@ -2,6 +2,7 @@
 
 #include "orientations.h"
 
+
 inline Vector3f middle_point(const Vector3f &p0, const Vector3f &n0, const Vector3f &p1, const Vector3f &n1) {
     Float n0p0 = n0.dot(p0), n0p1 = n0.dot(p1),
           n1p0 = n1.dot(p0), n1p1 = n1.dot(p1),
@@ -29,17 +30,19 @@ inline  Vector3f exact_3dir(const Vector3f &o0, const Quaternion &q0,
 	return M.transpose() * ((o0 - o1) * invScale);
 	
 }
+
 inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0, const Quaternion &q0,
-	const Vector3f &o1, const Quaternion &q1,
-	Float scale, Float invScale) {
+	const Vector3f &o1, const Quaternion &q1, Float scale, Float invScale) {
 	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized();
 	Matrix3f M = qn.toMatrix();
+	// the position field energy
 	Vector3f vvv = (M.transpose() * ((o0 - o1) * invScale));
 
 	// we want to count how many coords of vvv will be rounded to 1
 	for (uint32_t i = 0; i < 3; i++) {
 		vvv[i] = std::abs(vvv[i]);
 	}
+
 	short res = 0;  Float Weight = 0; std::vector<bool> bits(3);
 	for (uint32_t i = 0; i < 3; i++) {
 		if (vvv[i] > 0.5) { res++; bits[i] = true; }
@@ -48,21 +51,21 @@ inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0
 	if (res == 0) { // it's a red! 
 		for (int i = 0; i < 3; i++) Weight += vvv[i] * vvv[i];
 	}
-	else if (res == 1) {
+	else if (res == 1) { // blue
 		for (int i = 0; i < 3; i++) {
 			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
 			else Weight += vvv[i] * vvv[i];
 		}
 		Weight += 1.0;
 	}
-	else if (res == 2) {
+	else if (res == 2) { // white
 		for (int i = 0; i < 3; i++) {
 			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
 			else Weight += vvv[i] * vvv[i];
 		}
 		Weight += 2.0;
 	}
-	else if (res == 3) {
+	else if (res == 3) { // green
 		for (int i = 0; i < 3; i++) {
 			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
 			else Weight += vvv[i] * vvv[i];
@@ -70,6 +73,55 @@ inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0
 		Weight += 3.0;
 	}
 
+	return std::make_tuple(res, Weight, vvv);
+}
+
+inline std::tuple<short, Float, Vector3f> my_posy3D_completeInfo(const Vector3f &o0, const Quaternion &q0,
+	const Vector3f &o1, const Quaternion &q1, Float scale, Float invScale, bool& is_other_edge) {
+	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized();
+	Matrix3f M = qn.toMatrix();
+	// the position field energy
+	Vector3f vvv = (M.transpose() * ((o0 - o1) * invScale));
+
+	// we want to count how many coords of vvv will be rounded to 1
+
+	for (uint32_t i = 0; i < 3; i++) {
+		vvv[i] = std::abs(vvv[i]);
+		if (vvv[i] > 1.5) {
+			//cout << "vvv" << i << ": " << vvv[i] << endl;
+			is_other_edge = true;
+		}
+	}
+
+	short res = 0;  Float Weight = 0; std::vector<bool> bits(3);
+	for (uint32_t i = 0; i < 3; i++) {
+		if (vvv[i] > 0.5) { res++; bits[i] = true; }
+		else bits[i] = false;
+	}
+	if (res == 0) { // it's a red! 
+		for (int i = 0; i < 3; i++) Weight += vvv[i] * vvv[i];
+	}
+	else if (res == 1) { // blue
+		for (int i = 0; i < 3; i++) {
+			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
+			else Weight += vvv[i] * vvv[i];
+		}
+		Weight += 1.0;
+	}
+	else if (res == 2) { // white
+		for (int i = 0; i < 3; i++) {
+			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
+			else Weight += vvv[i] * vvv[i];
+		}
+		Weight += 2.0;
+	}
+	else if (res == 3) { // green
+		for (int i = 0; i < 3; i++) {
+			if (bits[i]) { Weight += (1 - vvv[i]) * (1 - vvv[i]); }
+			else Weight += vvv[i] * vvv[i];
+		}
+		Weight += 3.0;
+	}
 	return std::make_tuple(res, Weight, vvv);
 }
 
@@ -102,8 +154,7 @@ inline std::pair<short, short> assignColorBiased(const Vector3f &o0, const Quate
 	return std::make_pair(res,ind);
 }
 inline std::pair<short, Float> assignColorWeighted3D(const Vector3f &o0, const Quaternion &q0,
-	const Vector3f &o1, const Quaternion &q1,
-	Float scale, Float invScale) {
+	const Vector3f &o1, const Quaternion &q1,	Float scale, Float invScale) {
 	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized();
 	Matrix3f M = qn.toMatrix();
 	Vector3f vvv = (M.transpose() * ((o0 - o1) * invScale));
