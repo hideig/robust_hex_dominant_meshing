@@ -60,9 +60,10 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     mPositionFieldShader.init("position_field_shader",
         (const char *) shader_position_field_vert,
         (const char *) shader_position_field_frag);
-	//mOtherEdge.init("other_positions",
-	//	(const char *)shader_position_field_vert,
-	//	(const char *)shader_position_field_frag);
+
+	mOtherPositionShader.init("other_positions",
+		(const char *)shader_other_position_field_vert,
+		(const char *)shader_other_position_field_frag);
 
     mOrientationSingularityShaderTet.init("orientation_singularity_shader_tet",
         (const char *) shader_singularity_tet_vert,
@@ -114,6 +115,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     mCamera.zoom = 1.0f;
     mLightPosition = Vector3f(0.0f, 0.3f, 5.0f);
     mBaseColor = Vector4f(0.4f, 0.5f, 0.7f, 1.f);
+	mOtherPositionColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
     mBaseColorBoundary = mRes.tetMesh() ? Vector4f(0.0f, 0.0f, 1.0f, .2f) : mBaseColor;
     mSpecularColor = Vector4f(1.f, 1.f, 1.f, 1.f);
     mSpecularColorBoundary = mRes.tetMesh() ? Vector4f(1.f, 1.f, 1.f, .2f) : mSpecularColor;
@@ -181,6 +183,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mCamera.zoom = 1.0f;
 		mLightPosition = Vector3f(0.0f, 0.3f, 5.0f);
 		mBaseColor = Vector4f(0.4f, 0.5f, 0.7f, 1.f);
+		mOtherPositionColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
 		//mBaseColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
 		mBaseColorBoundary = mRes.tetMesh() ? Vector4f(0.0f, 0.0f, 1.0f, .2f) : mBaseColor;
 		mSpecularColor = Vector4f(1.f, 1.f, 1.f, 1.f);
@@ -198,6 +201,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mCamera.zoom = 1.0f;
 		mLightPosition = Vector3f(0.0f, 0.3f, 5.0f);
 		mBaseColor = Vector4f(0.4f, 0.5f, 0.7f, 1.f);
+		mOtherPositionColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
 		//mBaseColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
 		mBaseColorBoundary = mRes.tetMesh() ? Vector4f(0.0f, 0.0f, 1.0f, .2f) : mBaseColor;
 		mSpecularColor = Vector4f(1.f, 1.f, 1.f, 1.f);
@@ -242,13 +246,13 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mPositionFieldShader.bind();
 		mPositionFieldShader.uploadAttrib("o", mRes.O());
-		mOtherEdge.bind();
-		mOtherEdge.uploadAttrib("o", mRes.my_O());
+
+		mOtherPositionShader.bind();
+		mOtherPositionShader.uploadAttrib("o", mRes.my_O());
 
 		mLayers[Layers::Boundary]->setChecked(true);
 		mLayers[Layers::PositionField]->setChecked(true);
-
-	//	mLayers[Layers::OtherEdge]->setChecked(true);
+		mLayers[Layers::OtherPosition]->setChecked(true);
 	});
 
 	mTmeshingBtn = new Button(statePanel, "Volume", ENTYPO_ICON_FLASH);
@@ -274,12 +278,11 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mPositionFieldShader.bind();
 		mPositionFieldShader.uploadAttrib("o", mRes.O());
-	    mOtherEdge.bind();
-		mOtherEdge.uploadAttrib("o", mRes.my_O());
-
+		//mOtherPositionShader.bind();
+		//mOtherPositionShader.uploadAttrib("o", mRes.my_O());
 		mLayers[Layers::Boundary]->setChecked(true);
 		mLayers[Layers::PositionField]->setChecked(true);
-		//mLayers[Layers::OtherEdge]->setChecked(true);
+		//mLayers[Layers::OtherPosition]->setChecked(true);
 		/*
 		std::cout << "------------------- my_process ----------------" << mRes.mScale << std::endl;
 		
@@ -421,7 +424,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
         mLayers[Layers::OrientationField]->setChecked(true);
         mLayers[Layers::OrientationSingularities]->setChecked(true);
         mLayers[Layers::PositionField]->setChecked(false);
-		//mLayers[Layers::OtherEdge]->setChecked(false);
+		mLayers[Layers::OtherPosition]->setChecked(false);
         mLayers[Layers::PositionSingularities]->setChecked(false);
         if (value == false)
             updateOrientationSingularities();
@@ -440,7 +443,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
         mLayers[Layers::OrientationField]->setChecked(false);
         mLayers[Layers::OrientationSingularities]->setChecked(false);
         mLayers[Layers::PositionField]->setChecked(true);
-		//mLayers[Layers::OtherEdge]->setChecked(true);
+	    mLayers[Layers::OtherPosition]->setChecked(true);
         mLayers[Layers::PositionSingularities]->setChecked(true);
         if (value == false)
             updatePositionSingularities();
@@ -469,10 +472,13 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		}
 		mLayers[PositionSingularities]->setChecked(false);
 		mLayers[Layers::PositionField]->setChecked(false);
+		mOtherPositionShader.bind();
+		mOtherPositionShader.uploadAttrib("o", mRes.my_O());
+		mLayers[Layers::OtherPosition]->setChecked(true);
+
 		mLayers[Layers::Boundary]->setChecked(false);
 		mLayers[OrientationSingularities]->setChecked(false);
 		mLayers[Layers::OrientationField]->setChecked(false);
-		//mLayers[Layers::OtherEdge]->setChecked(false);
 
 		mExtractionResultShader_F_done.bind();
 		mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
@@ -539,10 +545,12 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mLayers[Layers::OrientationField] = new CheckBox(popup, "Orientation field");
 	mLayers[Layers::OrientationSingularities] = new CheckBox(popup, "Orientation singularities");
 	mLayers[Layers::PositionField] = new CheckBox(popup, "Position field");
+	mLayers[Layers::OtherPosition] = new CheckBox(popup, "Other position");
+
 	mLayers[Layers::PositionSingularities] = new CheckBox(popup, "Position singularities");
 	mLayers[Layers::Boundary] = new CheckBox(popup, "Boundary");
 	mLayers[Layers::BoundaryWireframe] = new CheckBox(popup, "Boundary wireframe");
-	mLayers[Layers::OtherEdge] = new CheckBox(popup, "Other positions");
+	
 
 	ctr = 0;
 	for (auto l : mLayers) {
@@ -571,6 +579,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mExtractionResultShader.uploadAttrib("color", MatrixXf(R.block(3, 0, 3, R.cols())));
 
 		mLayers[Layers::PositionField]->setChecked(false);
+		mLayers[Layers::OtherPosition]->setChecked(false);
 		mLayers[Layers::PositionSingularities]->setChecked(false);
 		mLayers[Layers::Boundary]->setChecked(false);
 	});
@@ -816,6 +825,9 @@ void Viewer::drawContents() {
 	mPositionFieldShader.uploadAttrib("o", mRes.O());
 	//mPositionFieldShader.uploadAttrib("o", mRes.my_O());
 
+	//mOtherPositionShader.bind();
+	//mOtherPositionShader.uploadAttrib("o", mRes.my_O());
+
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 	glDisable(GL_BLEND);
@@ -852,12 +864,14 @@ void Viewer::drawContents() {
 		mPositionFieldShader.setUniform("split", mSplit, false);
 		mPositionFieldShader.drawArray(GL_POINTS, 0, mRes.vertexCount());
 	}
-	//if (mLayers[OtherEdge]->checked()) {
-	//	mOtherEdge.bind();
-	//	mOtherEdge.setUniform("mvp", mvp);
-	//	mOtherEdge.setUniform("split", mSplit, false);
-	//	mOtherEdge.drawArray(GL_POINTS, 0, mRes.vertexCount());
-	//}
+
+	if (mLayers[OtherPosition]->checked()) {
+		mOtherPositionShader.bind();
+		mOtherPositionShader.setUniform("mvp", mvp);
+		mOtherPositionShader.setUniform("split", mSplit, false);
+		//mOtherPositionShader.setUniform("outColor", mOtherPositionColor);
+		mOtherPositionShader.drawArray(GL_POINTS, 0, mRes.my_mO[0].cols());
+	}
 	if (mLayers[OrientationSingularities]->checked()) {
 		auto &shader = mRes.tetMesh() ? mOrientationSingularityShaderTet : mOrientationSingularityShaderTri;
 		shader.bind();

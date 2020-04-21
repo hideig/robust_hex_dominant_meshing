@@ -90,7 +90,7 @@ protected:
         Boundary,
         BoundaryWireframe,
         LayerCount,
-		OtherEdge
+		OtherPosition
     };
 	enum Extraction_Condition {
 		ReColor=0,
@@ -130,6 +130,9 @@ protected:
     GLShader mOrientationFieldShaderTri, mOrientationFieldShaderTet;
     GLShader mOrientationSingularityShaderTri, mOrientationSingularityShaderTet;
     GLShader mPositionFieldShader;
+
+	GLShader mOtherPositionShader; // other positions
+
     GLShader mPositionSingularityShaderTri, mPositionSingularityShaderTet;
     GLShader mExtractionResultShader;
 	GLShader mExtractionResultShader2;
@@ -140,9 +143,8 @@ protected:
 
 	GLShader mExtractionResultShader_F_done;
 
-	GLShader mOtherEdge; // other positions
 
-    Vector4f mBaseColor, mSpecularColor;
+    Vector4f mBaseColor, mSpecularColor, mOtherPositionColor;
     Vector4f mBaseColorBoundary, mSpecularColorBoundary;
     CameraParameters mCamera;
     Vector2i mTranslateStart;

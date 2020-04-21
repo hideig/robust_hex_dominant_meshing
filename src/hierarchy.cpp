@@ -664,6 +664,7 @@ void MultiResolutionHierarchy::build() {
 				Vector3f o = aabbRand(mAABB, rng);
 				o -= n.dot(o - v) * n;
 				mO[i].col(j) = o;
+				my_mO[i].col(j) = o;
 			}
 		}
 		//propagate up

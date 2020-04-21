@@ -116,7 +116,7 @@ public:
 	void swap_data3D();
 
 		bool edge_tagging3D(vector<uint32_t> &ledges);
-		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges);
+		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes);
 		void tagging_collapseTet();
 		bool split_long_edge3D(vector<uint32_t> &ledges);
 		bool split_face3D(bool red_edge);
@@ -171,6 +171,10 @@ public:
     std::vector<SMatrix> mP;
     MatrixXu mF;
     MatrixXu mT;
+
+	// 插入的位置场
+	vector<Vector3f> insert_points;
+
 
 	MatrixXf mVv_tag;
 	std::vector<tuple_E> mpEes;

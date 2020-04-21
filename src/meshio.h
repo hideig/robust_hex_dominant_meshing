@@ -21,6 +21,8 @@ extern void write_surface_mesh_OFF(MatrixXf &V, std::vector<std::vector<uint32_t
 extern void write_surface_mesh_OBJ(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, char * path);
 extern void write_surface_mesh_OBJ(MatrixXf &V, MatrixXu &F, char * path);
 
+
+extern void write_tet_veitices_set(MatrixXf &V, MatrixXf &insert_V, char * path);
 extern void write_volume_mesh_VTK(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, char * path);
 extern void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std::vector<uint32_t>> &F, std::vector<int> &F_type, char * path);
 extern void write_volume_mesh_HYBRID(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, std::vector<std::vector<uint32_t>> &P, std::vector<bool> &P_flag, std::vector<std::vector<bool>> &PF_flag, char * path);

@@ -849,6 +849,21 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 
 	f.close();
 }
+
+void write_tet_veitices_set(MatrixXf &V, MatrixXf &insert_V, char * path)
+{
+	std::fstream f(path, std::ios::out);
+
+	f << V.cols()+insert_V.cols() << "  "<< 3 << "	" << 0 << "	 " << 0 << std::endl;
+	int index = 0;
+	for (int i = 0; i < V.cols(); i++)
+		f << index++ << "  " <<  V(0, i) << "  " << V(1, i) << "  " << V(2, i) << std::endl;
+	for (int i = 0; i < insert_V.cols(); i++)
+		f << index++ << "  " << insert_V(0, i) << "  " << insert_V(1, i) << "  " << insert_V(2, i) << std::endl;
+
+	f.close();
+}
+
 void write_volume_mesh_HYBRID(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, std::vector<std::vector<uint32_t>> &P, std::vector<bool> &P_flag, std::vector<std::vector<bool>> &PF_flag, char * path)
 {
 	std::fstream f(path, std::ios::out);

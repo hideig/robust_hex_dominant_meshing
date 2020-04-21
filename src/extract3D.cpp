@@ -104,7 +104,7 @@ void construct_Es_TetEs_Fs_TetFs_FEs(){ // 边、tet边、面、tet面、面边--网格
 		}
 		mpFes[std::get<2>(temp[i])][std::get<3>(temp[i])] = E_num;
 	}
-	//
+	
 	for (uint32_t i = 0; i < mpFes.size(); ++i)
 		if (mpF_boundary_flag[i]) 
 			for (uint32_t e = 0; e < 3; ++e) 
@@ -154,7 +154,7 @@ void MultiResolutionHierarchy::construct_Es_Fs_Polyhedral() {
 		}
 		mpFes[std::get<2>(temp[i])][std::get<3>(temp[i])] = E_num;
 	}
-	//
+	
 	mpF_boundary_flag.clear(); 
 	mpF_boundary_flag.resize(mpFes.size(), false);
 	for (auto fs : mpPs)for (auto fid : fs) 
@@ -934,8 +934,8 @@ void MultiResolutionHierarchy::orient_hybrid_mesh(MatrixXf &HV, vector<vector<ui
 		}
 }
 void MultiResolutionHierarchy::swap_data3D() {
-	Timer<> timer;
-	timer.beginStage("swap_data3D");
+	//Timer<> timer;
+	//timer.beginStage("swap_data3D");
 	F_tag.clear();
 	P_tag.clear();
 	for (auto p : mpPs) 
@@ -952,7 +952,7 @@ void MultiResolutionHierarchy::swap_data3D() {
 	mpFvs = F_tag; 
 	mpPs = P_tag;
 	construct_Es_Fs_Polyhedral();
-	timer.endStage();
+	//timer.endStage();
 }
 //int my_process(const MatrixXf &V_, const MatrixXu &F_, const MatrixXu &T_);
 //bool MultiResolutionHierarchy::meshExtraction3D() {
@@ -980,13 +980,28 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	//edge_tagging3D(ledges);
 	mV_tag = mO[0]; newQ = mQ[0]; newN3D = mN[0]; newQu3D = Quadric_copy;
 	mRes.otheredges.clear();
-	my_edge_tagging3D(ledges, mRes.otheredges);
+	mRes.persistentedges.clear();
+	my_edge_tagging3D(ledges, mRes.otheredges, mRes.persistentedges, mRes);
+
+	int insert_points_size = mRes.insert_points.size();
+	cout << " mRes.insert_points_size:" << insert_points_size << endl;
+	mRes.my_mO[0].resize(3, insert_points_size);
+	for (int i = 0; i < insert_points_size; i++) {
+		for (int j = 0; j < 3; j++) {
+			//cout << mRes.insert_points[i][j] << " ";
+			mRes.my_mO[0](j, i) = mRes.insert_points[i][j];
+		}
+		//cout << endl;
+	}
 	cout << " mRes.otheredge:" << mRes.otheredges.size() << endl;
 	cout << "ledges.size(): " << ledges.size() << endl;
-	//vertex insert.
-	Timer<> time_decompose;
-	time_decompose.beginStage("----------拓扑---------");
 	
+	Timer<> time_decompose;
+
+//========for extraction=============
+/*
+	// vertex insert.
+	time_decompose.beginStage("----------拓扑---------");
 	if (ledges.size() && splitting) {
 		split_long_edge3D(ledges);
 	}
@@ -1009,9 +1024,8 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 		tagging_collapseTet();
 		swap_data3D(); // tf:作用
 
-		if (times > 10) break; // 最多十次迭代拓扑操作
+		if (times > 5) break; // 最多十次迭代拓扑操作
 
-		Timer<> time_decompose;
 		////face insert
 		if (splitting) {
 			while (split_polyhedral3D()) {
@@ -1060,7 +1074,6 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 		else h_num = P_tag.size();
 		times++;
 	}
-	time_decompose.endStage();
 	uint32_t largest_polyhdral = 0;
 	for (uint32_t i = 0; i < P_tag.size(); i++)
 		if (P_tag[i].size() > largest_polyhdral)
@@ -1111,211 +1124,230 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 			sta.polyhedral_ratios.push_back(Float(H_type[i]) / sta.pN);
 		}
 	}
-	//output
-//========for quick tets output=============
-	//mV_tag = mV[0];
-	//swap_data3D();
-
-	//PF_flag.clear();
-	//orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
-	//char path_temp[512] = "H:/RHDM1/cube_tet.HYBRID";
-	//write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
-	//int cnt = 0;
-	//for (int i = 0; i < F_tag.size(); i++) {
-	//	vec3 p[3];
-	//	for (int j = 0; j < 3; j++) {
-	//		for (int k = 0; k < 3; k++) {
-	//			p[j][k] = mV_tag(k, F_tag[i][j]);
-	//		}
-	//	}
-	//	double q = evaluateTriangle(p[0], p[1], p[2]);
-	//	if (q < 0.3) {
-	//		//cout << "quality: " << i << ": " << q << endl;
-	//		cnt++;
-	//	}
-	//}
-
-	//std::cout << "------------------- my_processKKKKKKKKKKKKK ----------------" << std::endl;
-	//MeshStore ioMesh;
-	//MatrixXu myF, myT; 
-	//myF = MatrixXu::Zero(3, 1);
-	//myF.resize(3, F_tag.size());
-	//for (int i = 0; i < F_tag.size(); i++) {
-	//	for (int j = 0; j < 3; j++) {
-	//		myF(j, i) = F_tag[i][j];
-	//	}
-	//}
-	//myT = MatrixXu::Zero(4, 1);
-	//myT.resize(4, P_tag.size());
-	//for (int i = 0; i < P_tag.size(); i++) {
-	//	for (int j = 0; j < 4; j++) {
-	//		myT(j, i) = P_tag[i][j];
-	//	}
-	//}
-	////myT.resize(4, mTs.size());
-	//
-	//cout << "mV_tag.size(): " << mV_tag.size() << endl;
-	//cout << "mRes.mV[0].size(): " << mRes.mV[0].size() << endl;
-	//for (int i = 0; i < mV_tag.size(); i++) {
-	//	//cout << "初始坐标：" << mV_tag(0, i) << "," << mV_tag(1, i) << "," << mV_tag(2, i) << endl;
-	//	//cout << "位置场坐标：" << mRes.mV[0](0, i) << "," << mRes.mV[0](1, i) << "," << mRes.mV[0](2, i) << endl;
-	//}
-	//cout << "myF.size(): " << myF.size() << endl;
-	//cout << "F_tag.size(): " << F_tag.size()*3 << endl;
-	//for (int i = 0; i < myF.size() ; i++) {
-	//	//cout << "myF：" << myF(0, i) << "," << myF(1, i) << "," << myF(2, i) << endl;
-	//	//cout << "F_tag：" << F_tag[i][0] << "," << F_tag[i][1] << "," << F_tag[i][2] << endl;
-	//}
-	//cout << "mRes.mT.size(): " << mRes.mT.size() << endl;
-	//cout << "P_tag.size(): " << P_tag.size()*4 << endl;
-	//for (int i = 0; i < mRes.mT.size(); i++) {
-	//	//cout << "mRes.mT：" << mRes.mT(0, i) << "," << mRes.mT(1, i) << "," << mRes.mT(2, i) << "," << mRes.mT(3, i) << endl;
-	//	//cout << "P_tag：" << P_tag[i][0] << "," << P_tag[i][1] << "," << P_tag[i][2] << "," << P_tag[i][3] << endl;
-	//}
-	////for (int i = 0; i < mV_tag.size(); i++) {
-	////	cout << "mV_tag: " << mV_tag(0, i) << ", " << mV_tag(1, i) << ", " << mV_tag(2, i) << endl;
-	////	cout << "mRes.mV[0]: " << mRes.mV[0](0, i) << ", " << mRes.mV[0](1, i) << ", " << mRes.mV[0](2, i) << endl;
-	////}
-	//myReadFileMESH(mV_tag, myF, mRes.mT, ioMesh);
-	////myReadFileMESH(mRes.mV[0], myF, mRes.mT, ioMesh);
-	//auto start0 = std::chrono::high_resolution_clock::now();
-	//TetMeshForCombining tets(&ioMesh);
-	//auto finish0 = std::chrono::high_resolution_clock::now();
-	//std::chrono::duration<double> t_mesh(finish0 - start0);
-	//std::cout << "Mesh structure built in " << t_mesh.count() << " seconds" << std::endl;
-	//auto start = std::chrono::high_resolution_clock::now();
-	//HXTCombineCellStore TheResult(tets);
-	//int hexFlag = 1;
-	//int prismFlag = 0, pyramidFlag = 0;
-	//double minQuality = 0.5;
-	//if (hexFlag) {
-	//	TheResult.computeHexes(minQuality);
-	//	auto finish = std::chrono::high_resolution_clock::now();
-	//	std::chrono::duration<double> t0(finish - start);
-	//	std::cout << TheResult.hexes().size() << " potential hexes computed in " << t0.count() << " seconds" << std::endl;
-	//}
-	//if (prismFlag) {
-	//	auto start = std::chrono::high_resolution_clock::now();
-	//	TheResult.computePrisms(minQuality);
-	//	auto finish = std::chrono::high_resolution_clock::now();
-	//	std::chrono::duration<double> tPrism(finish - start);
-	//	std::cout << TheResult.prisms().size() << " potential prisms computed in " << tPrism.count() << " seconds" << std::endl;
-	//}
-	//if (pyramidFlag) {
-	//	auto start = std::chrono::high_resolution_clock::now();
-	//	TheResult.computePyramids(minQuality);
-	//	auto finish = std::chrono::high_resolution_clock::now();
-	//	std::chrono::duration<double> tPyramid(finish - start);
-	//	std::cout << TheResult.pyramids().size() << " potential pyramids computed in " << tPyramid.count() << " seconds" << std::endl;
-	//}
-	//auto startSelect = std::chrono::high_resolution_clock::now();
-	//std::array<bool, 4> cellTypes{ bool(hexFlag), bool(prismFlag), bool(pyramidFlag), true };
-	////TheResult.selectCellsGreedyLocal(cellTypes);
-	//TheResult.selectCellsGreedy(cellTypes);
-	//auto endSelect = std::chrono::high_resolution_clock::now();
-	//std::chrono::duration<double> ts(endSelect - startSelect);
-	//if (hexFlag) std::cout << nbTrueValues(TheResult.selectedHexes()) << " selected hexes" << std::endl;
-	//if (prismFlag) std::cout << nbTrueValues(TheResult.selectedPrisms()) << " selected prisms" << std::endl;
-	//if (pyramidFlag) std::cout << nbTrueValues(TheResult.selectedPyramids()) << " selected pyramids" << std::endl;
-	//std::cout << nbTrueValues(TheResult.selectedTets()) << " tetrahedra remain" << std::endl;
-	//std::cout << "Timings cell selection " << ts.count() << "seconds" << std::endl;
-	////初始化 mpEs， mV_tag， F_tag;
-	//
-	//unsigned int num = TheResult.mesh_.nbVertices();
-	//mRes.mVv_tag.resize(3, num);
-	//for (uint32_t i = 0; i < num; ++i) {
-	//	mRes.mVv_tag(0, i) = TheResult.mesh_.point(i)[0];
-	//	mRes.mVv_tag(1, i) = TheResult.mesh_.point(i)[1];
-	//	mRes.mVv_tag(2, i) = TheResult.mesh_.point(i)[2];
-	//}
-	//const TetMeshForCombining& mesh_ = TheResult.mesh_;
-	//unsigned int edgeIndex = 0;
-	////// TETS 
-	//for (unsigned int t = 0; t < mesh_.nbTets(); ++t) {
-	//	unsigned int v[4];
-	//	if (!((TheResult.selectedCells_[3])[t])) continue;
-	//	else {
-	//		for (int n = 0; n < 4; n++) 
-	//			v[n] = mesh_.vertex(t, n);
-	//	}
-	//	//v0, v1, boundary, energy, color, edge index, xy/yz/xz plane, timestamp
-	//	for (int n = 0; n < 3; n++) {
-	//		//for (int m = n + 1; m < 4; m++)
-	//			//mRes.mpEes.push_back(std::make_tuple(v[n], v[m], false, 0, Edge_tag::H, edgeIndex++, -1, 0));
-	//	}
-	//}
-	//// OTHER CELLS
-	//int cntt = 0;
-	//for (unsigned int type = 0; type + 1 < cellTypes.size(); ++type) {
-	//	if (!cellTypes[type]) continue;
-	//	const std::vector<HXTCombineCell>& cells = TheResult.cells_[type];
-	//	const std::vector<bool>& selected = TheResult.selectedCells_[type];
-	//	for (unsigned int i = 0; i < cells.size(); ++i) {
-	//		//if (cntt > 100)break;
-	//		if (selected[i]) {
-	//			unsigned int v[8];
-	//			if (cells[i].isHex()) {
-	//				cntt++;
-	//				for (unsigned int j = 0; j < 8; j++) {
-	//					v[j] = cells[i].vertex(j);
-	//				}
-	//				for (unsigned int j = 0; j < 7; ++j) {
-	//					for (unsigned int k = j + 1; k < 8; ++k) {
-	//						bindex edge(v[j], v[k]);
-	//						if (isEdge(cells[i], edge)) {
-	//							mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, Edge_tag::R, edgeIndex++, -1, 0));
-	//							//mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, edgeIndex % 4, edgeIndex++, -1, 0));
-	//						}
-	//					}
-	//				}
-	//			    // 显示面片
-	//				for (unsigned int j = 0; j < 16; ++j) {
-	//					for (unsigned int j1 = j + 1; j1 < 16; ++j1) {
-	//						for (unsigned int j2 = j1 + 1; j2 < 16; ++j2) {
-	//							for (unsigned int j3 = j2 + 1; j3 < 16; ++j3) {
-	//								quadindex facet(v[j % 8], v[j1 % 8], v[j2 % 8], v[j3 % 8]);
-	//								if (isQuadFacet(cells[i], facet)) {
-	//									mRes.Ff_tag.push_back(std::vector<uint32_t>{v[j % 8], v[j1 % 8], v[j2 % 8], v[j3 % 8]});
-	//								}
-	//							}
-	//						}
-	//					}
-	//				}
-	//			}
-	//			else if (cells[i].isPrism()) {
-	//			}
-	//			else if (cells[i].isPyramid()) {
-	//			}
-	//		}
-	//	}
-	//}
-
-//char path_temp[512] = "C:/xgao/meshing/code/robust_instant_meshing/datasets/volume/cube_tet.HYBRID";
-//write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
-//system("PAUSE");
-//========for quick tets output=============
 	PF_flag.clear();
 	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
+*/
+//========for extraction=============
 
+//========for quick tets output=============
+/*
+	mV_tag = mV[0];
+	swap_data3D();
+
+	PF_flag.clear();
+	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
+	char path_temp[512] = "H:/RHDM1/cube_tet.HYBRID";
+	write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
+	system("PAUSE");
+*/
+//========for quick tets output=============
+
+//========for combine=============
+
+	int cnt = 0;
+	for (int i = 0; i < F_tag.size(); i++) {
+		vec3 p[3];
+		for (int j = 0; j < 3; j++) {
+			for (int k = 0; k < 3; k++) {
+				p[j][k] = mV_tag(k, F_tag[i][j]);
+			}
+		}
+		double q = evaluateTriangle(p[0], p[1], p[2]);
+		if (q < 0.3) { 
+			//cout << "quality: " << i << ": " << q << endl;
+			cnt++;
+		}
+	}
+
+	std::cout << "------------------- begin combine process ----------------" << std::endl;
+	MeshStore ioMesh;
+	MatrixXu myF, myT; 
+	myF = MatrixXu::Zero(3, 1);
+	myF.resize(3, F_tag.size());
+	for (int i = 0; i < F_tag.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			myF(j, i) = F_tag[i][j];
+		}
+	}
+	myT = MatrixXu::Zero(4, 1);
+	myT.resize(4, P_tag.size());
+	for (int i = 0; i < P_tag.size(); i++) {
+		for (int j = 0; j < 4; j++) {
+			myT(j, i) = P_tag[i][j];
+		}
+	}
+	//myT.resize(4, mTs.size());
+	
+	cout << "mV_tag.size(): " << mV_tag.size() << endl;
+	cout << "mRes.mV[0].size(): " << mRes.mV[0].size() << endl;
+	for (int i = 0; i < mV_tag.size(); i++) {
+		//cout << "初始坐标：" << mV_tag(0, i) << "," << mV_tag(1, i) << "," << mV_tag(2, i) << endl;
+		//cout << "位置场坐标：" << mRes.mO[0](0, i) << "," << mRes.mO[0](1, i) << "," << mRes.mO[0](2, i) << endl;
+	}
+	cout << "myF.size(): " << myF.size() << endl;
+	cout << "F_tag.size(): " << F_tag.size()*3 << endl;
+	for (int i = 0; i < myF.size() ; i++) {
+		//cout << "myF：" << myF(0, i) << "," << myF(1, i) << "," << myF(2, i) << endl;
+		//cout << "F_tag：" << F_tag[i][0] << "," << F_tag[i][1] << "," << F_tag[i][2] << endl;
+	}
+	cout << "mRes.mT.size(): " << mRes.mT.size() << endl;
+	cout << "P_tag.size(): " << P_tag.size()*4 << endl;
+	for (int i = 0; i < mRes.mT.size(); i++) {
+		//cout << "mRes.mT：" << mRes.mT(0, i) << "," << mRes.mT(1, i) << "," << mRes.mT(2, i) << "," << mRes.mT(3, i) << endl;
+		//cout << "P_tag：" << P_tag[i][0] << "," << P_tag[i][1] << "," << P_tag[i][2] << "," << P_tag[i][3] << endl;
+	}
+	//for (int i = 0; i < mV_tag.size(); i++) {
+	//	cout << "mV_tag: " << mV_tag(0, i) << ", " << mV_tag(1, i) << ", " << mV_tag(2, i) << endl;
+	//	cout << "mRes.mV[0]: " << mRes.mV[0](0, i) << ", " << mRes.mV[0](1, i) << ", " << mRes.mV[0](2, i) << endl;
+	//}
+	//myReadFileMESH(mV_tag, myF, mRes.mT, ioMesh);
+	//myReadFileMESH(mRes.mV[0], myF, mRes.mT, ioMesh);
+	auto start0 = std::chrono::high_resolution_clock::now();
+	TetMeshForCombining tets(&ioMesh);
+	auto finish0 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> t_mesh(finish0 - start0);
+	std::cout << "Mesh structure built in " << t_mesh.count() << " seconds" << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
+	HXTCombineCellStore TheResult(tets);
+	int hexFlag = 1;
+	int prismFlag = 0, pyramidFlag = 0;
+	double minQuality = 0.5;
+	if (hexFlag) {
+		TheResult.computeHexes(minQuality);
+		auto finish = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> t0(finish - start);
+		std::cout << TheResult.hexes().size() << " potential hexes computed in " << t0.count() << " seconds" << std::endl;
+	}
+	if (prismFlag) {
+		auto start = std::chrono::high_resolution_clock::now();
+		TheResult.computePrisms(minQuality);
+		auto finish = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> tPrism(finish - start);
+		std::cout << TheResult.prisms().size() << " potential prisms computed in " << tPrism.count() << " seconds" << std::endl;
+	}
+	if (pyramidFlag) {
+		auto start = std::chrono::high_resolution_clock::now();
+		TheResult.computePyramids(minQuality);
+		auto finish = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> tPyramid(finish - start);
+		std::cout << TheResult.pyramids().size() << " potential pyramids computed in " << tPyramid.count() << " seconds" << std::endl;
+	}
+	auto startSelect = std::chrono::high_resolution_clock::now();
+	std::array<bool, 4> cellTypes{ bool(hexFlag), bool(prismFlag), bool(pyramidFlag), true };
+	//TheResult.selectCellsGreedyLocal(cellTypes);
+	TheResult.selectCellsGreedy(cellTypes);
+	auto endSelect = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> ts(endSelect - startSelect);
+	if (hexFlag) std::cout << nbTrueValues(TheResult.selectedHexes()) << " selected hexes" << std::endl;
+	if (prismFlag) std::cout << nbTrueValues(TheResult.selectedPrisms()) << " selected prisms" << std::endl;
+	if (pyramidFlag) std::cout << nbTrueValues(TheResult.selectedPyramids()) << " selected pyramids" << std::endl;
+	std::cout << nbTrueValues(TheResult.selectedTets()) << " tetrahedra remain" << std::endl;
+	std::cout << "Timings cell selection " << ts.count() << "seconds" << std::endl;
+	//初始化 mpEs， mV_tag， F_tag;
+	
+	unsigned int num = TheResult.mesh_.nbVertices();
+	mRes.mVv_tag.resize(3, num);
+	for (uint32_t i = 0; i < num; ++i) {
+		mRes.mVv_tag(0, i) = TheResult.mesh_.point(i)[0];
+		mRes.mVv_tag(1, i) = TheResult.mesh_.point(i)[1];
+		mRes.mVv_tag(2, i) = TheResult.mesh_.point(i)[2];
+	}
+	const TetMeshForCombining& mesh_ = TheResult.mesh_;
+	unsigned int edgeIndex = 0;
+	//// TETS 
+	for (unsigned int t = 0; t < mesh_.nbTets(); ++t) {
+		unsigned int v[4];
+		if (!((TheResult.selectedCells_[3])[t])) continue;
+		else {
+			for (int n = 0; n < 4; n++) 
+				v[n] = mesh_.vertex(t, n);
+		}
+		//v0, v1, boundary, energy, color, edge index, xy/yz/xz plane, timestamp
+		for (int n = 0; n < 3; n++) {
+			//for (int m = n + 1; m < 4; m++)
+				//mRes.mpEes.push_back(std::make_tuple(v[n], v[m], false, 0, Edge_tag::H, edgeIndex++, -1, 0));
+		}
+	}
+	// OTHER CELLS
+	int cntt = 0;
+	for (unsigned int type = 0; type + 1 < cellTypes.size(); ++type) {
+		if (!cellTypes[type]) continue;
+		const std::vector<HXTCombineCell>& cells = TheResult.cells_[type];
+		const std::vector<bool>& selected = TheResult.selectedCells_[type];
+		for (unsigned int i = 0; i < cells.size(); ++i) {
+			//if (cntt > 100)break;
+			if (selected[i]) {
+				unsigned int v[8];
+				if (cells[i].isHex()) {
+					cntt++;
+					for (unsigned int j = 0; j < 8; j++) {
+						v[j] = cells[i].vertex(j);
+					}
+					for (unsigned int j = 0; j < 7; ++j) {
+						for (unsigned int k = j + 1; k < 8; ++k) {
+							bindex edge(v[j], v[k]);
+							if (isEdge(cells[i], edge)) {
+								mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, Edge_tag::R, edgeIndex++, -1, 0));
+								//mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, edgeIndex % 4, edgeIndex++, -1, 0));
+							}
+						}
+					}
+				    // 显示面片
+					for (unsigned int j = 0; j < 16; ++j) {
+						for (unsigned int j1 = j + 1; j1 < 16; ++j1) {
+							for (unsigned int j2 = j1 + 1; j2 < 16; ++j2) {
+								for (unsigned int j3 = j2 + 1; j3 < 16; ++j3) {
+									quadindex facet(v[j % 8], v[j1 % 8], v[j2 % 8], v[j3 % 8]);
+									if (isQuadFacet(cells[i], facet)) {
+										mRes.Ff_tag.push_back(std::vector<uint32_t>{v[j % 8], v[j1 % 8], v[j2 % 8], v[j3 % 8]});
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (cells[i].isPrism()) {
+				}
+				else if (cells[i].isPyramid()) {
+				}
+			}
+		}
+	}
+
+//========for combine=============
+
+//========for display result=============
+ ////显示高的结果
+	//E_final_rend.setZero();
+ //   E_final_rend.resize(6, 2 * mpEs.size());
+	//composit_edges_colors(mV_tag, mpEs, E_final_rend);
+	//composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
+// 显示xxx
 	E_final_rend.setZero();
-    E_final_rend.resize(6, 2 * mpEs.size());
-	composit_edges_colors(mV_tag, mpEs, E_final_rend);
-	composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
+	E_final_rend.resize(6, 2 * mRes.mpEes.size());
+	composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
+	composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
 
-	//E_final_rend.resize(6, 2 * mRes.mpEes.size());
-	//composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
-
+	// 显示otheredges
+	//E_final_rend.setZero();
 	//E_final_rend.resize(6, 2 * mRes.otheredges.size());
 	//composit_edges_colors(mV_tag, mRes.otheredges, E_final_rend);
-	
+
+	// 显示persistentedges
+	//E_final_rend.setZero();
 	//E_final_rend.resize(6, 2 * mRes.persistentedges.size());
 	//composit_edges_colors(mV_tag, mRes.persistentedges, E_final_rend);
 
-	//composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
-	
 	cout << "done with extraction!" << endl;
+	time_decompose.endStage();
+
+	// 输出补后的位置场点云
+	char tet_vertices_set_path[512] = "D:/myfile/tet_vertices_set.node";
+	write_tet_veitices_set(mO[0], my_mO[0], tet_vertices_set_path); 
+	//write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
 }
-bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges) {
+bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, 
+	vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes) {
 	Timer<> timer;
 	timer.beginStage("edge_tagging3D ");
 
@@ -1348,23 +1380,26 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 				shortcnt++;
 			}
 		}
-		if (longcnt >= 1 && shortcnt == 0) {
+		if (longcnt == 1 && shortcnt == 0) {
 			otheredges.push_back(e);
-			vector<Vector3f> insert_points;
+			// vector<Vector3f> insert_points;
 			Vector3f vvvround;
 			for (uint32_t j = 0; j < 3; j++) {
 				vvvround[j] = std::round(len[j]);  // 对vvv取整
 				if (vvvround[j] > 1) {  // 需要插入（vvvround[j]-1）个点
 					//cout << "vvvround[j]: " << vvvround[j] << endl;
-					for (int k = 0; k < vvvround[j] - 1; k++) {
+					for (int k = 1; k < vvvround[j]; k++) {
 						Vector3f insert_point;
 						for (int l = 0; l < 3; l++) {
 							insert_point[l] = (k*v0p[l] + (vvvround[j] - k)*v1p[l]) / (vvvround[j]);
 						}
-						insert_points.push_back(insert_point);
+						mRes.insert_points.push_back(insert_point);
 					}
 				}
 			}
+		}
+		if (longcnt == 0 && shortcnt == 1) {
+			persistentedges.push_back(e);
 		}
 		std::get<4>(e) = std::get<0>(a_posy); // color
 		std::get<3>(e) = std::get<1>(a_posy); // energy
