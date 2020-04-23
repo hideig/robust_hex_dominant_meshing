@@ -160,7 +160,8 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 		}
 		return stats;
 	};
-
+	cout << "Computing mesh statistics .. ";
+	cout.flush();
 	auto reduce = [](MeshStats s0, MeshStats s1) -> MeshStats {
 		MeshStats result;
 		result.mSurfaceArea = s0.mSurfaceArea + s1.mSurfaceArea;
@@ -174,12 +175,14 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 	};
 
 	tbb::blocked_range<uint32_t> range(0u, (uint32_t)F_.cols(), GRAIN_SIZE);
-
+	cout << "Computing mesh statistics .. ";
+	cout.flush();
 	if (deterministic)
 		stats = tbb::parallel_deterministic_reduce(range, MeshStats(), map, reduce);
 	else
 		stats = tbb::parallel_reduce(range, MeshStats(), map, reduce);
-
+	cout << "Computing mesh statistics .. ";
+	cout.flush();
 	stats.mAverageEdgeLength /= F_.cols() * 3;
 	stats.mWeightedCenter /= stats.mSurfaceArea;
 
@@ -359,6 +362,192 @@ bool MultiResolutionHierarchy::tet_meshing()
 		for (uint32_t j = 0; j < 3; j++)mF(j, i) = HF[i][j];
 	//orient_triangle_mesh_index(mV[0], mF);
 
+	char path[512] = "D:/myfile/tet_mesh.mesh";
+	my_write_volume_mesh_MESH(mV[0], mF, mT, path);
+	std::cout << "V, F, T: " << mV[0].cols() << " " << mF.cols() << " " << mT.cols() << endl;
+	return true;
+}
+bool MultiResolutionHierarchy::my_tet_meshing()
+{
+	MatrixXf V;
+	MatrixXu F;
+	if (!tetMesh()) {
+		V = mV[0];
+		F = mF;
+	}
+	else {
+		V = mV[0];
+		F = mF;
+	}
+/*
+	Vector3f minV = mV[0].rowwise().minCoeff() + Vector3f(-0.1, -0.1, -0.1),
+		maxV = mV[0].rowwise().maxCoeff() + Vector3f(0.1, 0.1, 0.1);
+
+	MatrixXf Vs(3, 8);
+	for (uint32_t i = 0; i < 8; i++)
+		for (uint32_t j = 0; j < 3; j++) {
+			short bit = ((1 << j) & i) >> j;
+			Vs(j, i) = (bit *minV[j] + (1 - bit)*maxV[j]);
+		}
+	MatrixXu tris_Cube(12, 3);
+	tris_Cube <<
+		0, 2, 3,
+		0, 3, 1,
+		3, 2, 7,
+		7, 2, 6,
+		3, 7, 5,
+		3, 5, 1,
+		1, 5, 0,
+		0, 5, 4,
+		4, 5, 7,
+		4, 7, 6,
+		4, 6, 2,
+		4, 2, 0;
+	tris_Cube.transposeInPlace();
+	orient_triangle_mesh_index(Vs, tris_Cube);
+
+	tetgenio in_bg_, in, addin, in_bg, out_, out;
+
+	in_bg_.numberofpoints = 8;
+	in_bg_.pointlist = new REAL[8 * 3];
+	for (uint32_t i = 0; i < 8; i++)
+		for (uint32_t j = 0; j < 3; j++)
+			in_bg_.pointlist[3 * i + j] = Vs(j, i);
+	in_bg_.numberoffacets = 12;
+	in_bg_.facetlist = new tetgenio::facet[12];
+	in_bg_.facetmarkerlist = new int[in_bg_.numberoffacets];
+	tetgenio::facet *f0;
+	tetgenio::polygon *p0;
+	for (uint32_t i = 0; i < in_bg_.numberoffacets; i++) {
+		f0 = &in_bg_.facetlist[i];
+		f0->numberofpolygons = 1;
+		f0->polygonlist = new tetgenio::polygon[f0->numberofpolygons];
+		f0->numberofholes = 0;
+		f0->holelist = NULL;
+		p0 = &f0->polygonlist[0];
+		p0->numberofvertices = 3;
+		p0->vertexlist = new int[p0->numberofvertices];
+		p0->vertexlist[0] = tris_Cube(0, i);
+		p0->vertexlist[1] = tris_Cube(1, i);
+		p0->vertexlist[2] = tris_Cube(2, i);
+		in_bg_.facetmarkerlist[i] = 1;
+	}
+	tetrahedralize("pq", &in_bg_, &out_);
+	
+	tetgenio in_bg_, in, addin, in_bg, out_, out;
+	in_bg.numberofpoints = mV[0].cols();
+	in_bg.pointlist = new REAL[in_bg.numberofpoints * 3];
+	for (uint32_t i = 0; i < 3 * mV[0].cols(); i++)
+		in_bg.pointlist[i] = mV[0](i/3, i%3);
+	in_bg.numberoftetrahedra = mT.cols();
+	in_bg.tetrahedronlist = new int[mT.cols() * 4];
+	for (uint32_t i = 0; i < 4 * mT.cols(); i++)
+		in_bg.tetrahedronlist[i] = mT(i/4, i%4);
+	in_bg.pointmtrlist = new double[in_bg.numberofpoints];
+	in_bg.numberofpointmtrs = 1;
+
+	
+	std::cout << "target tet edge len: " << tet_elen << endl;
+	for (int i = 0; i < in_bg.numberofpoints; i++)
+		in_bg.pointmtrlist[i] = tet_elen;
+			
+	tetgenio in_bg_, in, addin, in_bg, out_, out;
+	tetgenio::facet *f;
+	tetgenio::polygon *p;
+
+	in.firstnumber = 0;
+
+	in.numberofpoints = V.cols();
+	in.pointlist = new REAL[in.numberofpoints * 3];
+	in.pointmarkerlist = new int[in.numberofpoints];
+	in.pointmtrlist = new double[in.numberofpoints];
+	for (int i = 0; i < in.numberofpoints; i++) {
+		in.pointlist[3 * i + 0] = V(0, i);
+		in.pointlist[3 * i + 1] = V(1, i);
+		in.pointlist[3 * i + 2] = V(2, i);
+		in.pointmarkerlist[i] = 1;
+	}
+
+	in.numberoffacets = F.cols();
+	in.facetlist = new tetgenio::facet[in.numberoffacets];
+	in.facetmarkerlist = new int[in.numberoffacets];
+
+	for (int i = 0; i < in.numberoffacets; i++)
+	{
+		f = &in.facetlist[i];
+		f->numberofpolygons = 1;
+		f->polygonlist = new tetgenio::polygon[f->numberofpolygons];
+		f->numberofholes = 0;
+		f->holelist = NULL;
+		p = &f->polygonlist[0];
+		p->numberofvertices = 3;
+		p->vertexlist = new int[p->numberofvertices];
+		p->vertexlist[0] = F(0, i);
+		p->vertexlist[1] = F(1, i);
+		p->vertexlist[2] = F(2, i);
+
+		in.facetmarkerlist[i] = 1;
+	}
+	tetrahedralize("pqm", &in, &out);
+	mV[0].setZero(); mV[0].resize(3, out.numberofpoints);
+	for (uint32_t i = 0; i < out.numberofpoints; i++) {
+		for (uint32_t j = 0; j < 3; j++)
+			mV[0](j, i) = out.pointlist[3 * i + j];
+	}
+	mT.setZero();
+	mT.resize(4, out.numberoftetrahedra);
+	for (int i = 0; i < out.numberoftetrahedra; i++) {
+		for (uint32_t j = 0; j < 4; j++)
+			mT(j, i) = out.tetrahedronlist[4 * i + j];
+	}
+	*/
+	//Fs
+	std::vector<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, bool>> tempF;
+	tempF.reserve(mT.cols() * 4);
+	std::vector<Vector3u> Fs;
+	for (uint32_t t = 0; t < mT.cols(); ++t) {
+		for (uint32_t f = 0; f < 4; ++f) {
+			uint32_t v0 = mT(tet_faces[f][0], t), v1 = mT(tet_faces[f][1], t), v2 = mT(tet_faces[f][2], t);
+			if (v0 > v1) std::swap(v0, v1);
+			if (v1 > v2) std::swap(v2, v1);
+			if (v0 > v1) std::swap(v0, v1);
+			tempF.push_back(std::make_tuple(v0, v1, v2, t, true));
+		}
+	}
+	std::sort(tempF.begin(), tempF.end());
+	Fs.clear();
+	Fs.reserve(tempF.size() / 3);
+	int F_num = -1, f_b = 0; std::vector<bool> f_boundary; f_boundary.reserve(tempF.size() / 2);
+	for (uint32_t i = 0; i < tempF.size(); ++i) {
+		if (i == 0 || (i != 0 &&
+			(std::get<0>(tempF[i]) != std::get<0>(tempF[i - 1]) ||
+				std::get<1>(tempF[i]) != std::get<1>(tempF[i - 1]) ||
+				std::get<2>(tempF[i]) != std::get<2>(tempF[i - 1])))) {
+			F_num++;
+			Vector3u v(std::get<0>(tempF[i]), std::get<1>(tempF[i]), std::get<2>(tempF[i]));
+			Fs.push_back(v);
+			f_boundary.push_back(true);
+			f_b++;
+		}
+		else {
+			f_boundary[F_num] = false;
+			f_b--;
+		}
+	}
+	vector<vector<uint32_t>> HF(f_b);
+	mF.resize(3, f_b); f_b = 0;
+
+	for (uint32_t f = 0; f < F_num+1 ; f++)
+		if (f_boundary[f]) {
+			mF.col(f_b) = Fs[f];
+			HF[f_b].push_back(Fs[f][0]);
+			HF[f_b].push_back(Fs[f][1]);
+			HF[f_b++].push_back(Fs[f][2]);
+		}
+	orient_polygon_mesh(mV[0], HF);
+	for (uint32_t i = 0; i < HF.size(); i++)
+		for (uint32_t j = 0; j < 3; j++)mF(j, i) = HF[i][j];
+	//orient_triangle_mesh_index(mV[0], mF);
 	std::cout << "V, F, T: " << mV[0].cols() << " " << mF.cols() << " " << mT.cols() << endl;
 	return true;
 }
@@ -433,7 +622,9 @@ void MultiResolutionHierarchy::build() {
 			triplets.push_back(Triplet(item.first, item.second, 1.f));
 		mL.resize(1);
 		mL[0].resize(mV[0].cols(), mV[0].cols());
+		timer.beginStage("Computing adjacency ");
 		mL[0].setFromTriplets(triplets.begin(), triplets.end());
+		timer.beginStage(" adjacency data structure");
 	}else {
 		construct_tEs_tFEs(mF, nFes, nEs);
 		//nV_nes, tag boundary V

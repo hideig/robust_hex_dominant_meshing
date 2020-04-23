@@ -1760,6 +1760,7 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 	for (uint32_t i = 0; i < Es_to_render.size(); ++i) {
 	//for (uint32_t i = 0; i < 1000; ++i) {
 		Vector3f color;
+		//cout << std::get<4>(Es_to_render[i]) << endl;
 		if (std::get<4>(Es_to_render[i]) == Edge_tag::R)
 			color = Vector3f(1, 0, 0);
 		else if (std::get<4>(Es_to_render[i]) == Edge_tag::B)
@@ -1768,6 +1769,8 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 			color = Vector3f(0, 1, 0);
 		else if (std::get<4>(Es_to_render[i]) == Edge_tag::H)
 			color = Vector3f(1, 1, 1);
+		else if (std::get<4>(Es_to_render[i]) == Edge_tag::L)
+			color = Vector3f(1, 0, 0);
 
 		uint32_t i0 = std::get<0>(Es_to_render[i]), i1 = std::get<1>(Es_to_render[i]);
 
@@ -1775,6 +1778,22 @@ void MultiResolutionHierarchy::composit_edges_colors(MatrixXf &Result_Vs, std::v
 		Result_edges.col(i * 2 + 1) << Result_Vs.col(i1), color;
 	}
 }
+void MultiResolutionHierarchy::my_composit_edges_colors(MatrixXf &Result_Vs, std::vector<tuple_E> &Es_to_render, MatrixXf &Result_edges, int setColor)
+{
+	Result_edges.resize(6, 2 * Es_to_render.size());
+	//for rendering edges
+	for (uint32_t i = 0; i < Es_to_render.size(); ++i) {
+		//for (uint32_t i = 0; i < 1000; ++i) {
+		Vector3f color;
+		if (setColor == 1) color = Vector3f(1, 0, 0);
+		else if (setColor == 2) color = Vector3f(0, 1, 0);
+		uint32_t i0 = std::get<0>(Es_to_render[i]), i1 = std::get<1>(Es_to_render[i]);
+
+		Result_edges.col(i * 2 + 0) << Result_Vs.col(i0), color;
+		Result_edges.col(i * 2 + 1) << Result_Vs.col(i1), color;
+	}
+}
+
 void MultiResolutionHierarchy::composit_edges_centernodes_triangles(std::vector<std::vector<uint32_t>> &Actual_Fs, MatrixXf &nodes, MatrixXf &Result_edges, MatrixXf &center_nodes, MatrixXu &Triangles)
 {
 	//for rendering edges

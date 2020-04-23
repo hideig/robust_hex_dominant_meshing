@@ -158,7 +158,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 
 #else
-			filename2 = nanogui::file_dialog({
+			filename2 = nanogui::file_dialog({ 
 				{ "obj", "Wavefront obj" }
 			}, false);
 			//filename2 = nanogui::file_dialog({
@@ -169,7 +169,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 				return;
 		}
 
-		if(!mRes.load(filename2)) return;
+	    if(!mRes.load(filename2)) return; 
 		//if(!mRes.my_load(filename2)) return;
 		mScaleBox->setValue(mRes.scale());
 
@@ -260,6 +260,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mTmeshingBtn->setFlags(Button::Flags::ToggleButton);
 	mTmeshingBtn->setChangeCallback([&](bool value) {
 		mRes.tet_meshing();
+		// mRes.my_tet_meshing();
 		mRes.build();
 		mTetShader.bind();
 		MatrixXf vertexColors = MatrixXf::Zero(4, mRes.vertexCount());
@@ -283,133 +284,6 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mLayers[Layers::Boundary]->setChecked(true);
 		mLayers[Layers::PositionField]->setChecked(true);
 		//mLayers[Layers::OtherPosition]->setChecked(true);
-		/*
-		std::cout << "------------------- my_process ----------------" << mRes.mScale << std::endl;
-		
-		MeshStore ioMesh;
-		myReadFileMESH(mRes.mV[0], mRes.mF, mRes.mT, ioMesh);
-		auto start0 = std::chrono::high_resolution_clock::now();
-
-		TetMeshForCombining tets(&ioMesh);
-
-		auto finish0 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> t_mesh(finish0 - start0);
-		std::cout << "Mesh structure built in " << t_mesh.count() << " seconds" << std::endl;
-
-		auto start = std::chrono::high_resolution_clock::now();
-
-		HXTCombineCellStore TheResult(tets);
-
-		int hexFlag = 1;
-		int prismFlag = 0, pyramidFlag = 0;
-		double minQuality = 0.;
-		if (hexFlag) {
-			TheResult.computeHexes(minQuality);
-			auto finish = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<double> t0(finish - start);
-			std::cout << TheResult.hexes().size() << " potential hexes computed in " << t0.count() << " seconds" << std::endl;
-		}
-
-		if (prismFlag) {
-			auto start = std::chrono::high_resolution_clock::now();
-			TheResult.computePrisms(minQuality);
-			auto finish = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<double> tPrism(finish - start);
-			std::cout << TheResult.prisms().size() << " potential prisms computed in " << tPrism.count() << " seconds" << std::endl;
-		}
-
-		if (pyramidFlag) {
-			auto start = std::chrono::high_resolution_clock::now();
-			TheResult.computePyramids(minQuality);
-			auto finish = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<double> tPyramid(finish - start);
-			std::cout << TheResult.pyramids().size() << " potential pyramids computed in " << tPyramid.count() << " seconds" << std::endl;
-		}
-
-		auto startSelect = std::chrono::high_resolution_clock::now();
-
-		std::array<bool, 4> cellTypes{ bool(hexFlag), bool(prismFlag), bool(pyramidFlag), true };
-		TheResult.selectCellsGreedyLocal(cellTypes);
-		//TheResult.selectCellsGreedy(cellTypes);
-		auto endSelect = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> ts(endSelect - startSelect);
-		if (hexFlag) std::cout << nbTrueValues(TheResult.selectedHexes()) << " selected hexes" << std::endl;
-		if (prismFlag)   std::cout << nbTrueValues(TheResult.selectedPrisms()) << " selected prisms" << std::endl;
-		if (pyramidFlag) std::cout << nbTrueValues(TheResult.selectedPyramids()) << " selected pyramids" << std::endl;
-		std::cout << nbTrueValues(TheResult.selectedTets()) << " tetrahedra remain" << std::endl;
-		std::cout << "Timings cell selection " << ts.count() << "seconds" << std::endl;
-
-		 //初始化 mpEs， mV_tag， F_tag;
-		unsigned int num = TheResult.mesh_.nbVertices();
-		mRes.mVv_tag.resize(3, num);
-		for (uint32_t i = 0; i < num; ++i) {
-			mRes.mVv_tag(0, i) = TheResult.mesh_.point(i)[0];
-			mRes.mVv_tag(1, i) = TheResult.mesh_.point(i)[1];
-			mRes.mVv_tag(2, i) = TheResult.mesh_.point(i)[2];
-		}
-
-		const TetMeshForCombining& mesh_= TheResult.mesh_;
-		unsigned int edgeIndex = 0;
-		//// TETS 
-		
-		for (unsigned int t = 0; t < mesh_.nbTets(); ++t) {
-			unsigned int v0, v1, v2, v3;
-			if (!((TheResult.selectedCells_[3])[t])) continue;
-			else {
-				v0 = mesh_.vertex(t, 0);
-				v1 = mesh_.vertex(t, 1);
-				v2 = mesh_.vertex(t, 2);
-				v3 = mesh_.vertex(t, 3);
-			}
-			//v0, v1, boundary, energy, color, edge index, xy/yz/xz plane, timestamp
-			mRes.mpEes.push_back(std::make_tuple(v0, v1, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
-			mRes.mpEes.push_back(std::make_tuple(v1, v2, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
-			mRes.mpEes.push_back(std::make_tuple(v2, v3, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
-			mRes.mpEes.push_back(std::make_tuple(v3, v0, false, 0, Edge_tag::H, edgeIndex++, -1, 0));
-		}
-		// OTHER CELLS
-		for (unsigned int type = 0; type + 1 < cellTypes.size(); ++type) {
-			if (!cellTypes[type]) continue;
-			const std::vector<HXTCombineCell>& cells = TheResult.cells_[type];
-			const std::vector<bool>& selected = TheResult.selectedCells_[type];
-			for (unsigned int i = 0; i < cells.size(); ++i) {
-				if (selected[i]) {
-					unsigned int v[8];
-					if (cells[i].isHex()) {
-						for (unsigned int j = 0; j < 8; j++) {
-							v[j] = cells[i].vertex(j);
-						}
-						for (unsigned int j = 0; j < 7; ++j) {
-							for (unsigned int k = j + 1; k < 8; ++k) {
-								bindex edge(v[j], v[k]);
-								if (isEdge(cells[i], edge)) {
-									mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, Edge_tag::B, edgeIndex++, -1, 0));
-									//mRes.mpEes.push_back(std::make_tuple(v[j], v[k], false, 0, edgeIndex % 4, edgeIndex++, -1, 0));
-								}
-							}
-						}
-
-						for (unsigned int j = 0; j < 16; ++j) {
-							for (unsigned int j1 = j + 1; j1 < 16; ++j1) {
-								for (unsigned int j2 = j1 + 1; j2 < 16; ++j2) {
-									for (unsigned int j3 = j2 + 1; j3 < 16; ++j3) {
-										quadindex facet(v[j%8], v[j1%8], v[j2%8], v[j3%8]);
-										if (isQuadFacet(cells[i], facet)) {
-											mRes.Ff_tag.push_back(std::vector<uint32_t>{v[j%8], v[j1%8], v[j2%8], v[j3%8]});
-										}
-									}
-								}
-							}
-						}
-
-					}else if (cells[i].isPrism()) {
-					}else if (cells[i].isPyramid()) {
-					}
-				}
-			}
-		}
-		*/
-
 	});
 
 

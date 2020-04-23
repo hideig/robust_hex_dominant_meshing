@@ -86,7 +86,8 @@ enum Edge_tag {
 	R = 0,
 	B,
 	D,
-	H
+	H,
+	L
 };
 
 inline std::string str_tolower(std::string str) {

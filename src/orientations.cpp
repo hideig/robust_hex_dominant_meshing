@@ -78,9 +78,6 @@ void MultiResolutionHierarchy::smoothOrientationsTri(uint32_t l, bool alignment,
 }
 
 void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment, bool randomization) {
-	//Timer<> timer;
-	//timer.beginStage("Beging Tet Orientation Optimization!!");
-	
 	const MatrixXf &N = mN[l];
     const SMatrix &L = mL[l];
     MatrixXf &Q = mQ[l];

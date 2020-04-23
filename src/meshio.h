@@ -27,6 +27,7 @@ extern void write_volume_mesh_VTK(MatrixXf &V, std::vector<std::vector<uint32_t>
 extern void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std::vector<uint32_t>> &F, std::vector<int> &F_type, char * path);
 extern void write_volume_mesh_HYBRID(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, std::vector<std::vector<uint32_t>> &P, std::vector<bool> &P_flag, std::vector<std::vector<bool>> &PF_flag, char * path);
 extern void write_volume_mesh_MESH(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, char * path);
+extern void my_write_volume_mesh_MESH(MatrixXf &V, MatrixXu &F, MatrixXu &T, char * path);
 
 extern void write_edge_coloring_TXT(std::vector<MatrixXf> &E_Colors, char * path);
 

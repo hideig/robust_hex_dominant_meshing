@@ -30,7 +30,7 @@ void Optimizer::run() {
         std::lock_guard<ordered_lock> lock(mRes.mutex());
         while (mRunning && (mRes.levels() == 0 || (!mOptimizePositions && !mOptimizeOrientations)))
             mCond.wait(mRes.mutex());
-
+		//cout <<"mLevel: "<< mLevel << endl;
         if (!mHierarchy)
             mLevel = 0;
 

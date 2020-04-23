@@ -48,7 +48,7 @@ public:
 	void orient_polygon_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF, vector<vector<uint32_t>> &HFE, vector<tuple_E> &Es);
 	void orient_polygon_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF);
 	bool tet_meshing();
-
+	bool my_tet_meshing();
     bool tetMesh() const { return mT.cols() > 0; }
     bool triMesh() const { return mT.cols() == 0; }
 
@@ -129,6 +129,8 @@ public:
 		void tagging_singularities_T_nodes(MatrixXf &V_tagging, vector<tuple_E> &E_tagging, vector<vector<uint32_t>> &F_tagging);
 
 	void composit_edges_colors(MatrixXf &Result_Vs, std::vector<tuple_E> &Es_to_render, MatrixXf &Result_edges);
+
+	void my_composit_edges_colors(MatrixXf &Result_Vs, std::vector<tuple_E> &Es_to_render, MatrixXf &Result_edges, int setColor);
 	void composit_edges_centernodes_triangles(std::vector<std::vector<uint32_t>> &Actual_Fs, MatrixXf &nodes, MatrixXf &Result_edges, MatrixXf &center_nodes, MatrixXu &Triangles);
 	
     const MatrixXf &orientationSingularities() const { return mOrientationSingularities; }
@@ -233,6 +235,7 @@ public:
 	MatrixXf E_rend_o, E_O_rend_o, E_I_rend_o;
 	MatrixXf E_tag_rend, E_tag_left_rend;
 	MatrixXf E_final_rend;
+	MatrixXf E_final_rend1;
 	MatrixXu F_tag_rend;
 	MatrixXu F_final_rend;
 	MatrixXf Other_edge_rend;

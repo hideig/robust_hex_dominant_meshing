@@ -223,6 +223,7 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 				int nbv;
 				sscanf(buffer, "%d", &nbv);
 				std::cout << nbv << " vertices  ";
+				V.setZero();
 				V.resize(3, nbv);
 				for (int i = 0; i < nbv; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
@@ -236,6 +237,7 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 				int nbf;
 				sscanf(buffer, "%d", &nbf);
 				std::cout << nbf << " triangles  ";
+				F.setZero();
 				F.resize(3, nbf);
 				for (int i = 0; i < nbf; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
@@ -248,6 +250,7 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 				int nbt;
 				sscanf(buffer, "%d", &nbt);
 				std::cout << nbt << " tetrahedra  ";
+				T.setZero();
 				T.resize(4, nbt);
 				for (int i = 0; i < nbt; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
@@ -853,7 +856,7 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 void write_tet_veitices_set(MatrixXf &V, MatrixXf &insert_V, char * path)
 {
 	std::fstream f(path, std::ios::out);
-
+	//f << V.cols() << "  " << 3 << "	" << 0 << "	 " << 0 << std::endl;
 	f << V.cols()+insert_V.cols() << "  "<< 3 << "	" << 0 << "	 " << 0 << std::endl;
 	int index = 0;
 	for (int i = 0; i < V.cols(); i++)
@@ -911,6 +914,36 @@ void write_volume_mesh_MESH(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, 
 	for (int i = 0; i<T.size(); i++)
 	{
 		f_out_meshlab_ << T[i][0] + 1 << " " << T[i][1] + 1 << " " << T[i][2] + 1 << " " << T[i][3] + 1 <<" "<< 0 << std::endl;
+	}
+	f_out_meshlab_ << "End";
+	f_out_meshlab_.close();
+}
+
+void my_write_volume_mesh_MESH(MatrixXf &V, MatrixXu &F, MatrixXu &T, char * path)
+{
+	std::fstream f_out_meshlab_(path, std::ios::out);
+
+	f_out_meshlab_ << "MeshVersionFormatted 2" << std::endl;
+	f_out_meshlab_ << "Dimension" << std::endl;
+	f_out_meshlab_ << "3" << std::endl;
+	f_out_meshlab_ << "Vertices" << std::endl;
+	f_out_meshlab_ << V.cols() << std::endl;
+	int verticescnt = 0;
+	for (int i = 0; i < V.cols(); i++)
+		f_out_meshlab_ << V(0, i) << "  " << V(1, i) << "  " << V(2, i) << "  " << ++verticescnt << std::endl;
+	f_out_meshlab_ << "Triangles" << std::endl;
+	f_out_meshlab_  << F.cols() << std::endl;
+
+	for (int i = 0; i < F.cols(); i++)
+	{
+		f_out_meshlab_ << F(i,0)+1 << " " << F(i, 1)+1 << " " << F(i, 2) +1<< " " << 1 << std::endl;
+	}
+	f_out_meshlab_ << "Tetrahedra" << std::endl;
+	f_out_meshlab_  << T.cols() << std::endl;
+
+	for (int i = 0; i < T.cols(); i++)
+	{
+		f_out_meshlab_ << T(i,0) +1<< " " << T(i,1)+ 1 << " " << T(i,2) +1<< " " << T(i,3)+1 << " " << 1 << std::endl;
 	}
 	f_out_meshlab_ << "End";
 	f_out_meshlab_.close();

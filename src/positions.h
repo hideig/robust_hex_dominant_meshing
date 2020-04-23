@@ -35,7 +35,6 @@ inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0
 	const Vector3f &o1, const Quaternion &q1, Float scale, Float invScale) {
 	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized();
 	Matrix3f M = qn.toMatrix();
-	// the position field energy
 	Vector3f vvv = (M.transpose() * ((o0 - o1) * invScale));
 
 	// we want to count how many coords of vvv will be rounded to 1
@@ -72,17 +71,15 @@ inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0
 		}
 		Weight += 3.0;
 	}
-
-	return std::make_tuple(res, Weight, vvv);
+	//weight: 越小，说明这条网格边的位置场越符合等参线，从而在后续拓扑修改中应优先处理
+	return std::make_tuple(res, Weight, vvv); 
 }
 
 inline std::tuple<short, Float, Vector3f> my_posy3D_completeInfo(const Vector3f &o0, const Quaternion &q0,
 	const Vector3f &o1, const Quaternion &q1, Float scale, Float invScale, bool& is_other_edge) {
-	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized();
+	Quaternion qn = (q0 + Quaternion::applyRotation(q1, q0)).normalized(); // 每条边上的标架为两点的平均标架
 	Matrix3f M = qn.toMatrix();
-	// the position field energy
 	Vector3f vvv = (M.transpose() * ((o0 - o1) * invScale));
-
 	// we want to count how many coords of vvv will be rounded to 1
 
 	for (uint32_t i = 0; i < 3; i++) {

@@ -982,7 +982,10 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	mRes.otheredges.clear();
 	mRes.persistentedges.clear();
 	my_edge_tagging3D(ledges, mRes.otheredges, mRes.persistentedges, mRes);
-
+	for (int i = 0; i < persistentedges.size(); i++) {
+		std::get<4>(persistentedges[i]) = 4; // color
+		//mRes.otheredges.push_back(persistentedges[i]);
+	}
 	int insert_points_size = mRes.insert_points.size();
 	cout << " mRes.insert_points_size:" << insert_points_size << endl;
 	mRes.my_mO[0].resize(3, insert_points_size);
@@ -999,9 +1002,9 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	Timer<> time_decompose;
 
 //========for extraction=============
-/*
 	// vertex insert.
-	time_decompose.beginStage("----------拓扑---------");
+	time_decompose.beginStage("---------topology operation begin---------");
+	cout << endl;
 	if (ledges.size() && splitting) {
 		split_long_edge3D(ledges);
 	}
@@ -1024,7 +1027,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 		tagging_collapseTet();
 		swap_data3D(); // tf:作用
 
-		if (times > 5) break; // 最多十次迭代拓扑操作
+		if (times > 5) break; // 最多迭代进行十次拓扑操作，高原本设置为10
 
 		////face insert
 		if (splitting) {
@@ -1126,7 +1129,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	}
 	PF_flag.clear();
 	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
-*/
+
 //========for extraction=============
 
 //========for quick tets output=============
@@ -1143,7 +1146,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 //========for quick tets output=============
 
 //========for combine=============
-
+/*
 	int cnt = 0;
 	for (int i = 0; i < F_tag.size(); i++) {
 		vec3 p[3];
@@ -1200,7 +1203,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	//	cout << "mV_tag: " << mV_tag(0, i) << ", " << mV_tag(1, i) << ", " << mV_tag(2, i) << endl;
 	//	cout << "mRes.mV[0]: " << mRes.mV[0](0, i) << ", " << mRes.mV[0](1, i) << ", " << mRes.mV[0](2, i) << endl;
 	//}
-	//myReadFileMESH(mV_tag, myF, mRes.mT, ioMesh);
+	myReadFileMESH(mV_tag, myF, mRes.mT, ioMesh);
 	//myReadFileMESH(mRes.mV[0], myF, mRes.mT, ioMesh);
 	auto start0 = std::chrono::high_resolution_clock::now();
 	TetMeshForCombining tets(&ioMesh);
@@ -1313,38 +1316,36 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 			}
 		}
 	}
-
+*/
 //========for combine=============
 
 //========for display result=============
  ////显示高的结果
-	//E_final_rend.setZero();
- //   E_final_rend.resize(6, 2 * mpEs.size());
-	//composit_edges_colors(mV_tag, mpEs, E_final_rend);
-	//composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
-// 显示xxx
 	E_final_rend.setZero();
-	E_final_rend.resize(6, 2 * mRes.mpEes.size());
-	composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
-	composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
+    E_final_rend.resize(6, 2 * mpEs.size());
+	composit_edges_colors(mV_tag, mpEs, E_final_rend);
+	composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
+// 显示xxx
+	//E_final_rend.setZero();
+	//E_final_rend.resize(6, 2 * mRes.mpEes.size());
+	//composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
+	//composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
 
-	// 显示otheredges
+	// 显示otheredges+persistentedges
 	//E_final_rend.setZero();
 	//E_final_rend.resize(6, 2 * mRes.otheredges.size());
 	//composit_edges_colors(mV_tag, mRes.otheredges, E_final_rend);
 
-	// 显示persistentedges
+	 //显示persistentedges
 	//E_final_rend.setZero();
 	//E_final_rend.resize(6, 2 * mRes.persistentedges.size());
 	//composit_edges_colors(mV_tag, mRes.persistentedges, E_final_rend);
-
 	cout << "done with extraction!" << endl;
 	time_decompose.endStage();
 
-	// 输出补后的位置场点云
-	char tet_vertices_set_path[512] = "D:/myfile/tet_vertices_set.node";
-	write_tet_veitices_set(mO[0], my_mO[0], tet_vertices_set_path); 
-	//write_volume_mesh_HYBRID(mV_tag, F_tag, P_tag, Hex_flag, PF_flag, path_temp);
+	// 输出补后的位置场点云数据
+	char tet_vertices_set_path[512] = "D:/myfile/dataset/tet_vertices_set.node";
+	write_tet_veitices_set(mV_tag, mRes.my_mO[0], tet_vertices_set_path);
 }
 bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, 
 	vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes) {
@@ -1361,7 +1362,7 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 		Quaternion q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
 		std::tuple<short, Float, Vector3f> a_posy = my_posy3D_completeInfo(mO_copy.col(v0), q0, mO_copy.col(v1), q1, mScale, mInvScale, is_other_edge);
 		if (is_other_edge) { othercnt++; }
-		Vector3f len = std::get<2>(a_posy); // vvv
+		Vector3f len = std::get<2>(a_posy); // 类型，能量，vvv
 		for (uint32_t j = 0; j < 3; j++) {
 			if (std::round(len[j]) > 1) {
 				hyperlong_edge = true;
@@ -1371,7 +1372,7 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 				}
 			}
 		}
-		int longcnt = 0, shortcnt = 0;
+		int longcnt = 0, shortcnt = 0, zerocnt;
 		for (uint32_t j = 0; j < 3; j++) {
 			if (len[j] >= 1.5) {
 				longcnt++;
@@ -1379,7 +1380,12 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 			else if (len[j] > 0.5&&len[j] < 1.5) {
 				shortcnt++;
 			}
+			else if (len[j] <= 0.5) {
+				zerocnt++;
+			}
 		}
+		// longcnt == 1，即在仅有一个方向上 vvv > 1 时在该方向上插点；
+		// longcnt >= 1，即在至少有一个方向上 vvv > 1 时插点（斜对角线的情况），虽然能更多的补充缺失的点，但有可能造成重复插点，；
 		if (longcnt == 1 && shortcnt == 0) {
 			otheredges.push_back(e);
 			// vector<Vector3f> insert_points;
