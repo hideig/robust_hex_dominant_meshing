@@ -14,6 +14,7 @@
 #include "global_types.h"
 #include <set>
 #include "tet_mesh.h"
+#include "kd_tree.hpp"
 
 using nanogui::Serializer;
 using namespace std;
@@ -76,8 +77,8 @@ public:
     MatrixXu &T() { return mT; }
     const MatrixXu &T() const { return mT; }
 
-    SMatrix &L(uint32_t i = 0) { return mL[i]; }
-    const SMatrix &L(uint32_t i) const { return mL[i]; }
+    SSMatrix &L(uint32_t i = 0) { return mL[i]; }
+    const SSMatrix &L(uint32_t i) const { return mL[i]; }
 
     const BVH *bvh() const { return mBVH; }
 
@@ -109,16 +110,23 @@ public:
 	Float compute_cost_edge2D_angle(int32_t v0, int32_t v1, vector<uint32_t> &vs, MatrixXf &V_);
 
 
-	//bool meshExtraction3D();
-	bool meshExtraction3D(MultiResolutionHierarchy& mRes);
+	bool meshExtraction3D();
+	void showPoints(const vector<vector<V3d>>& points);
+	bool isInTet(const vector<V3d>& tet_4V, const V3d& point);
 	void construct_Es_Fs_Polyhedral();
 	void orient_hybrid_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF, vector<vector<uint32_t>> &HP, vector<vector<bool>> &HPF_flag);
 	void swap_data3D();
 
 		bool edge_tagging3D(vector<uint32_t> &ledges);
-		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes);
+		void find_otheredges(vector<tuple_E> &otheredges, vector<tuple_E> &persistentedges,vector<Vector3f>& insert_points_tmp);
+		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, 
+			vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes, vector<Vector3f>& insert_points_tmp);
 		void tagging_collapseTet();
 		bool split_long_edge3D(vector<uint32_t> &ledges);
+		bool split_otheredges(vector<tuple_E> &otheredge, int insert_size);
+		bool split_otheredge(tuple_E &otheredge, int size);
+		template<typename PointV> vector<int> checkLocalArea(const PointV& gn, KD3d& old_tree, double mScale);
+		void insert_new_vertex(const KD3d& old_vertices, const std::vector<V3d>& candidate_vertices,const V3d& new_vertex);
 		bool split_face3D(bool red_edge);
 		bool split_polyhedral3D();
 		void candidate_loops(vector<uint32_t> &fs, vector<vector<uint32_t>> &nfes, vector<vector<uint32_t>> &nfvs, vector<pair<double, uint32_t>> &fs_rank);
@@ -145,14 +153,17 @@ public:
 	void set_tet_elen_ratio(Float ratio) { tElen_ratio = ratio; tet_elen = ratio * ms.mAverageEdgeLength; };
 	Float tet_elen_ratio() { return tElen_ratio; };
     Float averageEdgeLength() const { return mAverageEdgeLength; }
-	Float scale() const { return ratio_scale; }
+	//Float scale() const { return ratio_scale; }
+	Float scale() const { return tet_elen; }
 	//void setScale(Float scale) { 
+	//    //cout << "mmmmmmmmmmmmmmmm" << endl;
 	//	ratio_scale = scale; 
 	//	mScale = diagonalLen * scale; 
 	//	mInvScale = 1.f / mScale;
 	//	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
 	//}
 	void setScale(Float scale) { // 设置目标网格边长
+		//cout << "mmmmmmmmmmmmmmmm" << endl;
 		ratio_scale = scale; 
 		tet_elen = scale;
 		mScale = scale;
@@ -169,13 +180,14 @@ public:
     std::vector<MatrixXf> mO;
 	std::vector<MatrixXf> my_mO;
     std::vector<MatrixXf> mC;
-    std::vector<SMatrix> mL;
-    std::vector<SMatrix> mP;
+    std::vector<SSMatrix> mL;
+    std::vector<SSMatrix> mP;
     MatrixXu mF;
+	MatrixXu allF;
     MatrixXu mT;
 
 	// 插入的位置场
-	vector<Vector3f> insert_points;
+	unordered_map<int, vector<pair<Vector3f, int>>> pe_insert_points;
 
 
 	MatrixXf mVv_tag;
@@ -187,6 +199,9 @@ public:
 	vector<vector<bool>> nV_boundary_flag;
 	std::vector<std::vector<uint32_t>> nV_nes;
 	std::vector<tuple_E> otheredges, persistentedges;
+	
+	vector<V3d> tetPoints;
+	vector<V3d> yuanPoints;
 	vector<vector<uint32_t>> vnfs;
 	Float quadricW = 1;
 
@@ -198,7 +213,7 @@ public:
     AABB mAABB;
     Float mAverageEdgeLength;
     mutable ordered_lock mMutex;
-    Float mScale, mInvScale;
+    double mScale, mInvScale;
 	Float diagonalLen;
 	Float ratio_scale;
 	Float tet_elen, tElen_ratio;

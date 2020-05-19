@@ -62,8 +62,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
         (const char *) shader_position_field_frag);
 
 	mOtherPositionShader.init("other_positions",
-		(const char *)shader_other_position_field_vert,
-		(const char *)shader_other_position_field_frag);
+		(const char *)shader_position_field_vert,
+		(const char *)shader_position_field_frag);
 
     mOrientationSingularityShaderTet.init("orientation_singularity_shader_tet",
         (const char *) shader_singularity_tet_vert,
@@ -170,7 +170,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		}
 
 	    if(!mRes.load(filename2)) return; 
-		//if(!mRes.my_load(filename2)) return;
+ //	if(!mRes.my_load(filename2)) return;
 		mScaleBox->setValue(mRes.scale());
 
 		filename = filename2;
@@ -260,7 +260,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mTmeshingBtn->setFlags(Button::Flags::ToggleButton);
 	mTmeshingBtn->setChangeCallback([&](bool value) {
 		mRes.tet_meshing();
-		// mRes.my_tet_meshing();
+	//	mRes.my_tet_meshing();
 		mRes.build();
 		mTetShader.bind();
 		MatrixXf vertexColors = MatrixXf::Zero(4, mRes.vertexCount());
@@ -341,8 +341,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 			mRes.doublets = false;
 			mRes.triangles = false;
 			mRes.decomposes = false;
-			//mRes.meshExtraction3D();
-			mRes.meshExtraction3D(mRes);
+			mRes.meshExtraction3D();
 		}
 		mLayers[PositionSingularities]->setChecked(false);
 		mLayers[Layers::PositionField]->setChecked(false);
@@ -712,12 +711,12 @@ void Viewer::drawContents() {
 		mTetShader.setUniform("model", model);
 		mTetShader.setUniform("view", view);
 		mTetShader.setUniform("proj", proj);
-		mTetShader.setUniform("base_color", mBaseColor);
-		//mTetShader.setUniform("specular_color", mSpecularColor);
+		mTetShader.setUniform("base_color", Vector4f(0, 0, 0, 0));
+		//mTetShader.setUniform("specular_color", Vector4f(0, 0, 0, 0));
 		mTetShader.setUniform("split", mSplit);
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		mTetShader.drawIndexed(GL_LINES_ADJACENCY, 0, mRes.tetCount() * 4);
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 	glPointSize(5);
 	// This must be enabled, otherwise glLineWidth has no effect
@@ -801,10 +800,12 @@ void Viewer::drawContents() {
 		mMeshShader.setUniform("model", model);
 		mMeshShader.setUniform("view", view);
 		mMeshShader.setUniform("proj", proj);
+		//mMeshShader.setUniform("base_color", Vector4f(1,0,1,0));
+		//mMeshShader.setUniform("specular_color", Vector4f(1, 0, 1, 0));
 		mMeshShader.setUniform("base_color", Vector4f(Vector4f::Constant(0.f)));
 		mMeshShader.setUniform("specular_color", Vector4f(Vector4f::Constant(0.f)));
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		mMeshShader.drawIndexed(GL_TRIANGLES, 0, mRes.faceCount());
+		mMeshShader.drawIndexed(GL_TRIANGLES, 0, mRes.faceCount()*3);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 

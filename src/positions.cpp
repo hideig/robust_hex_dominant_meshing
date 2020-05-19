@@ -3,7 +3,7 @@
 #include "timer.h"
 
 void MultiResolutionHierarchy::smoothPositionsTri(uint32_t l, bool alignment, bool randomization, bool extrinsic) {
-    const SMatrix &L = mL[l];
+    const SSMatrix &L = mL[l];
     const MatrixXf &V = mV[l], &N = mN[l], &Q = mQ[l];
     MatrixXf &O = mO[l];
 
@@ -21,7 +21,7 @@ void MultiResolutionHierarchy::smoothPositionsTri(uint32_t l, bool alignment, bo
             double errorLocal = 0;
             int nLinksLocal = 0;
             for (uint32_t k = range.begin(); k != range.end(); ++k) {
-                SMatrix::InnerIterator it(L, k);
+                SSMatrix::InnerIterator it(L, k);
 
                 uint32_t i = it.row();
 
@@ -87,7 +87,7 @@ void MultiResolutionHierarchy::smoothPositionsTri(uint32_t l, bool alignment, bo
 }
 
 void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bool randomization) {
-    const SMatrix &L = mL[l];
+    const SSMatrix &L = mL[l];
     const MatrixXf &V = mV[l], &N = mN[l], &Q = mQ[l], &C = mC[l];
     MatrixXf &O = mO[l];
 
@@ -112,7 +112,7 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
 				//int nLinksLocal = 0;
 				//for (uint32_t k = 0; k <L.outerSize(); ++k) {
 				//	
-				SMatrix::InnerIterator it(L, k);
+				SSMatrix::InnerIterator it(L, k);
                 uint32_t i = it.row();
 
                 const Quaternion q_i = Q.col(i);
@@ -183,9 +183,9 @@ void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bo
 }
 
 void MultiResolutionHierarchy::prolongPositions(int level) {
-	const SMatrix &P = mP[level];
+	const SSMatrix &P = mP[level];
 	for (int k = 0; k < P.outerSize(); ++k) {
-		SMatrix::InnerIterator it(P, k);
+		SSMatrix::InnerIterator it(P, k);
 		for (; it; ++it) {
 			Vector3f o_i = mO[level + 1].col(it.col());
 			Vector3f v_i = mV[level].col(it.row());

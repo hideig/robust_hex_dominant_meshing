@@ -71,7 +71,7 @@ inline std::tuple<short, Float, Vector3f> posy3D_completeInfo(const Vector3f &o0
 		}
 		Weight += 3.0;
 	}
-	//weight: 越小，说明这条网格边的位置场越符合等参线，从而在后续拓扑修改中应优先处理
+	
 	return std::make_tuple(res, Weight, vvv); 
 }
 
@@ -119,6 +119,7 @@ inline std::tuple<short, Float, Vector3f> my_posy3D_completeInfo(const Vector3f 
 		}
 		Weight += 3.0;
 	}
+	//weight: 越小，说明这条网格边的位置场越符合等参线，从而在后续拓扑修改中应优先处理
 	return std::make_tuple(res, Weight, vvv);
 }
 

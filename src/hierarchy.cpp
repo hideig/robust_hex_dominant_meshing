@@ -81,10 +81,11 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 
 	ms = compute_mesh_stats(mF, mV[0]); // ¼ÆËã³ömAverageEdgeLength
 	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
-
-	std::cout << "mAverageEdgeLength: " << mAverageEdgeLength << std::endl;
+	std::cout << "diagonalLen: " << diagonalLen << std::endl;
+	std::cout << "mAverageEdgeLength: " << ms.mAverageEdgeLength << std::endl;
 	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
 	std::cout << "ratio_scale: " << ratio_scale << std::endl;
+	std::cout << "tElen_ratio: " << tElen_ratio << std::endl;
 	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
 	std::cout << "tet_elen: " << tet_elen << std::endl;
 
@@ -138,8 +139,7 @@ bool MultiResolutionHierarchy::my_load(const std::string &filename) {
 MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const MatrixXf &V_, bool deterministic)
 {
 	MeshStats stats;
-	cout << "Computing mesh statistics .. ";
-	cout.flush();
+	cout << "Computing mesh statistics .. " << endl;
 	auto map = [&](const tbb::blocked_range<uint32_t> &range, MeshStats stats) -> MeshStats {
 		for (uint32_t f = range.begin(); f != range.end(); ++f) {
 			Vector3f v[3] = { V_.col(F_(0, f)), V_.col(F_(1, f)), V_.col(F_(2, f)) };
@@ -160,8 +160,6 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 		}
 		return stats;
 	};
-	cout << "Computing mesh statistics .. ";
-	cout.flush();
 	auto reduce = [](MeshStats s0, MeshStats s1) -> MeshStats {
 		MeshStats result;
 		result.mSurfaceArea = s0.mSurfaceArea + s1.mSurfaceArea;
@@ -175,14 +173,10 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 	};
 
 	tbb::blocked_range<uint32_t> range(0u, (uint32_t)F_.cols(), GRAIN_SIZE);
-	cout << "Computing mesh statistics .. ";
-	cout.flush();
 	if (deterministic)
 		stats = tbb::parallel_deterministic_reduce(range, MeshStats(), map, reduce);
 	else
 		stats = tbb::parallel_reduce(range, MeshStats(), map, reduce);
-	cout << "Computing mesh statistics .. ";
-	cout.flush();
 	stats.mAverageEdgeLength /= F_.cols() * 3;
 	stats.mWeightedCenter /= stats.mSurfaceArea;
 
@@ -305,9 +299,14 @@ bool MultiResolutionHierarchy::tet_meshing()
 	}
 	tetrahedralize("pqm", &in, &out, &addin, &in_bg);
 	mV[0].setZero(); mV[0].resize(3, out.numberofpoints);
+	tetPoints.resize(out.numberofpoints);
 	for (uint32_t i = 0; i < out.numberofpoints; i++) {
-		for (uint32_t j = 0; j < 3; j++)
+		V3d pointtmp;
+		for (uint32_t j = 0; j < 3; j++) {
 			mV[0](j, i) = out.pointlist[3 * i + j];
+			pointtmp[j] = out.pointlist[3 * i + j];
+		}
+		tetPoints[i]=pointtmp;
 	}
 	mT.setZero(); 
 	mT.resize(4, out.numberoftetrahedra);
@@ -315,9 +314,11 @@ bool MultiResolutionHierarchy::tet_meshing()
 		for (uint32_t j = 0; j < 4; j++)
 			mT(j, i) = out.tetrahedronlist[4 * i + j];
 	}
+
 	//Fs
 	std::vector<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, bool>> tempF;
 	tempF.reserve(mT.cols() * 4);
+	int idx = 0;
 	std::vector<Vector3u> Fs;
 	for (uint32_t t = 0; t < mT.cols(); ++t) {
 		for (uint32_t f = 0; f < 4; ++f) {
@@ -688,7 +689,7 @@ void MultiResolutionHierarchy::build() {
 		const MatrixXf &N = mN[mN.size() - 1];
 		const MatrixXf &C = mC[mC.size() - 1];
 		const vector<bool> &VB = nV_boundary_flag[nV_boundary_flag.size() - 1];
-		const SMatrix &L = mL[mL.size() - 1];
+		const SSMatrix &L = mL[mL.size() - 1];
 		std::vector<bool> collapsed(L.cols(), false);
 		std::vector<bool> visited(L.cols(), false);
 		std::set<WeightedEdge> edges;
@@ -696,7 +697,7 @@ void MultiResolutionHierarchy::build() {
 		double edgeSum = 0;
 		size_t edgeCount = 0;
 		for (int k = 0; k < L.outerSize(); ++k) {
-			for (SMatrix::InnerIterator it(L, k); it; ++it) {
+			for (SSMatrix::InnerIterator it(L, k); it; ++it) {
 				if (it.col() == it.row())
 					continue;
 				Float length = (V.col(it.row()) - V.col(it.col())).norm();
@@ -769,12 +770,12 @@ void MultiResolutionHierarchy::build() {
 		std::cout << nVertices;
 		std::cout.flush();
 
-		SMatrix P(V.cols(), nVertices), R(nVertices, V.cols());
+		SSMatrix P(V.cols(), nVertices), R(nVertices, V.cols());
 
 		P.setFromTriplets(P_triplets.begin(), P_triplets.end());
 		R.setFromTriplets(R_triplets.begin(), R_triplets.end());
 
-		SMatrix L2 = R*L*P;
+		SSMatrix L2 = R*L*P;
 		MatrixXf V2(3, nVertices), N2(3, nVertices), C2(3, nVertices), Q2(4, nVertices);
 		for (uint32_t i = 0; i<nVertices; ++i) {
 			V2.col(i) = V_next[i];
@@ -861,7 +862,7 @@ void MultiResolutionHierarchy::build() {
 		//propagate up
 		for (uint32_t i = 1; i < mL.size(); ++i) {
 			for (int k = 0; k < mP[i - 1].outerSize(); ++k) {
-				SMatrix::InnerIterator it(mP[i - 1], k);
+				SSMatrix::InnerIterator it(mP[i - 1], k);
 				for (; it; ++it) {
 					if (nV_boundary_flag[i - 1][it.row()])
 						mQ[i].col(it.col()) = mQ[i - 1].col(it.row());

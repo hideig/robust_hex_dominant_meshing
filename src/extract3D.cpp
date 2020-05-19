@@ -1,14 +1,136 @@
 #include "hierarchy.h"
 #include "positions.h"
 #include "timer.h"
-#include"quadratic.h"
+#include "quadratic.h"
 #include "hxt_combine_cpp_api.h"
 #include "tet_mesh.h"
 #include <nanogui/nanogui.h>
 #include <nanogui/glutil.h>
 #include "viewer.h"
+//#include "kd_tree.hpp"
+#include "merge_find_set.hpp"
+#include "frame_field.h"
+const static double orthogonal_cosine = std::cos(PI / 12);
+
+namespace LatticeCore {
+	/***************** local functions *******************/
+	inline Eigen::Matrix<int, 6, 1>
+		get_orthogonal_direction_bit(const V3d& rod,
+			const QuaternionFrame& q,
+			double eps)
+	{
+		Matrix_3 Q = q.to_rotation_matrix();
+		V3d p = Q.transpose() * rod.normalized();
+		Eigen::Matrix<int, 6, 1> res;
+		res.setZero();
+		for (int j = 0; j < 3; ++j) {
+			if ((1.0 - std::abs(p(j))) < eps) {
+				if (p(j) > 0) {
+					res(j) = 1;
+				}
+				else {
+					res(j + 3) = 1;
+				}
+			}
+		}
+		return res;
+	}
+
+	inline int
+		get_direction_code(const Eigen::Matrix<int, 6, 1>& bits)
+	{
+		if ((bits.cwiseAbs()).sum() != 1)
+			return -1;
+		for (int j = 0; j < 6; ++j) {
+			if (bits(j) == 1)
+				return j;
+		}
+		return -1;
+	}
+
+	inline bool
+		most_orthogonal_vertex_valid(const std::vector<int>& candidate_vertex_id,
+			const std::vector<V3d>& candidate_vertex_posision,
+			const V3d& origin,
+			const V3d& ref,
+			int* result)
+	{
+		double max_cos = -1.0;
+		V3d r = ref.normalized();
+		for (int j : candidate_vertex_id) {
+			V3d p = (candidate_vertex_posision[j] - origin).normalized();
+			double pcos = p.dot(r);
+			if (pcos > max_cos) {
+				max_cos = pcos;
+				*result = j;
+			}
+		}
+		// too far from orthogonal direction
+		if (max_cos < orthogonal_cosine)
+			return false;
+		else
+			return true;
+	}
+
+	inline void
+		merge_clustered_nodes(const MergeFindSet& findset,
+			const std::vector<V3d>& vertices,
+			const std::vector<IndexPair>& edges,
+			std::vector<V3d>* r_vertices,
+			std::vector<IndexPair>* r_edges)
+	{
+		std::map<int, std::vector<int>> clusters;
+		for (int i = 0; i < findset.size(); ++i) {
+			clusters[findset.find(i)].push_back(i);
+		}
+		/* if cluster's size is equal to vertices', then merge is trivial */
+		if (clusters.size() == vertices.size()) {
+			*r_vertices = vertices;
+			*r_edges = edges;
+				return;
+		}
+		// 表示代表元对应的合并后的点的编号
+		std::map<int, int> present_to_clustered;
+		// build merged vertices
+		int n_merged = clusters.size();
+		int k = 0;
+		r_vertices->resize(n_merged);
+		for (auto& itm : clusters) {
+			V3d noval_p(0.0, 0.0, 0.0);
+			int min_id = itm.second[0];
+			for (auto& id : itm.second) {
+				noval_p = noval_p + vertices[id];
+				if (id < min_id)
+					min_id = id;
+			}
+			if (itm.second.size() > 1) {};
+				noval_p /= itm.second.size();
+			r_vertices->at(k) = noval_p;
+			present_to_clustered[itm.first] = k;
+			k++;
+		}
+		// build new edges
+		std::set<IndexPair> merged_edges_set;
+		for (auto& e : edges) {
+			int u = e[0];
+			int v = e[1];
+			if (findset.find(u) != findset.find(v)) {
+				int noval_u = present_to_clustered[findset.find(u)];
+				int noval_v = present_to_clustered[findset.find(v)];
+				if (noval_u < noval_v) {
+					merged_edges_set.insert(IndexPair{ noval_u, noval_v });
+				}
+				else {
+					merged_edges_set.insert(IndexPair{ noval_v, noval_u });
+				}
+			}
+		}
+		r_edges->assign(merged_edges_set.begin(), merged_edges_set.end());
+	}
+}
 //3D===========================================================================================================//
 std::vector<std::vector<uint32_t>> mTs;
+std::vector<std::vector<uint32_t>> mTs_4V;
 
 std::vector<tuple_E> mpEs;
 std::vector<std::vector<uint32_t>> mpFvs, mpFes, mpPs;
@@ -32,9 +154,14 @@ std::vector<std::vector<uint32_t>> PE_npfs_sudo;
 std::vector<std::vector<uint32_t>> PF_npps_sudo;
 
 //re-coloring
-MatrixXf mQ_copy, mO_copy, mN_copy;
+MatrixXf mQ_copy, mO_copy, mO_copy1,  mN_copy;
 vector<Quadric> Quadric_copy, newQu3D;
 MatrixXf newQ, newN3D, newV3D, newC3D;
+
+
+vector<V3d> mO_points;
+vector<V3d> stage1_points;
+vector<V3d> tet_points;
 
 //timing
 long long topo_check_time = 0, decomposition_time = 0, total_time = 0;
@@ -123,7 +250,7 @@ void construct_Es_TetEs_Fs_TetFs_FEs(){ // 边、tet边、面、tet面、面边--网格
 	}
 	for (uint32_t i = 0; i < mpFes.size(); i++) 
 		for (auto eid : mpFes[i]) 
-			PE_npfs[eid].push_back(i); 
+			PE_npfs[eid].push_back(i);  // 每条边所属的面
 	for (uint32_t i = 0; i < mpPs.size(); i++) 
 		for (auto fid : mpPs[i]) 
 			PF_npps[fid].push_back(i);
@@ -954,9 +1081,169 @@ void MultiResolutionHierarchy::swap_data3D() {
 	construct_Es_Fs_Polyhedral();
 	//timer.endStage();
 }
+inline void merge_clustered_nodes(const MergeFindSet& findset,const std::vector<V3d>& vertices,	std::vector<V3d>* r_vertices)
+{
+	std::map<int, std::vector<int>> clusters;
+	for (int i = 0; i < findset.size(); ++i) {
+		clusters[findset.find(i)].push_back(i);
+	}
+	/* if cluster's size is equal to vertices', then merge is trivial */
+	if (clusters.size() == vertices.size()) {
+		*r_vertices = vertices;
+		return;
+	}
+	// 表示代表元对应的合并后的点的编号
+	std::map<int, int> present_to_clustered;
+	// build merged vertices
+	int n_merged = clusters.size();
+	int k = 0;
+	r_vertices->resize(n_merged);
+	for (auto& itm : clusters) {
+		V3d noval_p(0.0, 0.0, 0.0);
+		int min_id = itm.second[0];
+		for (auto& id : itm.second) {
+			noval_p = noval_p + vertices[id];
+			if (id < min_id)
+				min_id = id;
+		}
+		if (itm.second.size() > 1)
+			noval_p /= itm.second.size();
+		r_vertices->at(k) = noval_p;
+		present_to_clustered[itm.first] = k;
+		k++;
+	}
+	return;
+}
 //int my_process(const MatrixXf &V_, const MatrixXu &F_, const MatrixXu &T_);
-//bool MultiResolutionHierarchy::meshExtraction3D() {
-bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) {
+//inline Eigen::Matrix<int, 6, 1> get_orthogonal_direction_bit(const V3d& rod,	const Quaternion& q,	double eps){
+//	Matrix_3 Q = q.toMatrix();
+//	V3d p = Q.transpose() * rod.normalized();
+//	Eigen::Matrix<int, 6, 1> res;
+//	res.setZero();
+//	for (int j = 0; j < 3; ++j) {
+//		if ((1.0 - std::abs(p(j))) < eps) {
+//			if (p(j) > 0) {
+//				res(j) = 1;
+//			}
+//			else {
+//				res(j + 3) = 1;
+//			}
+//		}
+//	}
+//	return res;
+//}
+void MultiResolutionHierarchy::showPoints(const vector<vector<V3d>>& points){
+	vector<V3d> all_points;
+	for (auto a : points) {
+		for (auto b : a) {
+			all_points.push_back(b);
+		}
+	}
+	cout << "all_points.size(): " << all_points.size() << endl;
+	my_mO[0].resize(3, all_points.size());
+	for (int i = 0; i < all_points.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			my_mO[0](j, i) = all_points[i][j];
+		}
+	}
+}
+
+/*
+* tell whether a point is in a tetrahedran or not
+* return IN, OUT, ONSURFACE
+*/
+#include "cmatrix"
+typedef techsoft::matrix<double> Matrix;//class for matrix
+enum SpaceRelation { ISIN, ISOUT, ISONSURFACE };
+SpaceRelation testPointInTet(vector<V3d> tet, const V3d& point, double& ex_volume_ratio){
+	assert(tet.size() == 4);
+	Matrix mat[5];
+	for (int i = 0; i < 5; ++i)
+		mat[i].resize(4, 4);
+	double det[5];
+	for (int i = 0; i < 4; ++i){
+		mat[0](i, 0) = tet[i][0];
+		mat[0](i, 1) = tet[i][1];
+		mat[0](i, 2) = tet[i][2];
+		mat[0](i, 3) = 1;
+	}
+	if (mat[0].det() < 0){
+		swap(tet[0][0], tet[1][0]);
+		swap(tet[0][1], tet[1][1]);
+		swap(tet[0][2], tet[1][2]);
+		for (int i = 0; i < 4; ++i){
+			mat[0](i, 0) = tet[i][0];
+			mat[0](i, 1) = tet[i][1];
+			mat[0](i, 2) = tet[i][2];
+			mat[0](i, 3) = 1;
+		}
+	}
+	mat[1](0, 0) = point[0];
+	mat[1](0, 1) = point[1];
+	mat[1](0, 2) = point[2];
+	mat[1](0, 3) = 1;
+	for (int i = 0; i < 4; ++i)	{
+		if (i == 0) continue;
+		mat[1](i, 0) = tet[i][0];
+		mat[1](i, 1) = tet[i][1];
+		mat[1](i, 2) = tet[i][2];
+		mat[1](i, 3) = 1;
+	}
+	mat[2](1, 0) = point[0];
+	mat[2](1, 1) = point[1];
+	mat[2](1, 2) = point[2];
+	mat[2](1, 3) = 1;
+	for (int i = 0; i < 4; ++i)	{
+		if (i == 1) continue;
+		mat[2](i, 0) = tet[i][0];
+		mat[2](i, 1) = tet[i][1];
+		mat[2](i, 2) = tet[i][2];
+		mat[2](i, 3) = 1;
+	}
+	mat[3](2, 0) = point[0];
+	mat[3](2, 1) = point[1];
+	mat[3](2, 2) = point[2];
+	mat[3](2, 3) = 1;
+	for (int i = 0; i < 4; ++i)	{
+		if (i == 2) continue;
+		mat[3](i, 0) = tet[i][0];
+		mat[3](i, 1) = tet[i][1];
+		mat[3](i, 2) = tet[i][2];
+		mat[3](i, 3) = 1;
+	}
+	mat[4](3, 0) = point[0];
+	mat[4](3, 1) = point[1];
+	mat[4](3, 2) = point[2];
+	mat[4](3, 3) = 1;
+	for (int i = 0; i < 4; ++i){
+		if (i == 3) continue;
+		mat[4](i, 0) = tet[i][0];
+		mat[4](i, 1) = tet[i][1];
+		mat[4](i, 2) = tet[i][2];
+		mat[4](i, 3) = 1;
+	}
+	double volume = 0;
+	for (int i = 0; i < 5; ++i){
+		det[i] = mat[i].det();
+		//cout << det[i] << endl;
+	}
+	ex_volume_ratio = 100.0;
+	for (int i = 1; i <= 4; ++i) {
+		volume += fabs(det[i]);
+	}
+	if (fabs(det[0] - volume) < 1e-15){
+		for (int i = 1; i <= 4; ++i){
+			if (fabs(det[i]) < 1e-15)
+				return ISONSURFACE;
+		}
+		return ISIN;
+	}
+	else {
+		ex_volume_ratio = min(ex_volume_ratio, fabs(volume / det[0]));
+		return ISOUT;
+	}
+}
+bool MultiResolutionHierarchy::meshExtraction3D() {
 	mQ_copy = mQ[0]; 
 	mO_copy = mO[0]; 
 	mN_copy = mN[0];
@@ -975,33 +1262,304 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	construct_Es_TetEs_Fs_TetFs_FEs();
 
 	//=============START MESH EXTRACTION=============//
-	
 	vector<uint32_t> ledges;
-	//edge_tagging3D(ledges);
+	
 	mV_tag = mO[0]; newQ = mQ[0]; newN3D = mN[0]; newQu3D = Quadric_copy;
-	mRes.otheredges.clear();
-	mRes.persistentedges.clear();
-	my_edge_tagging3D(ledges, mRes.otheredges, mRes.persistentedges, mRes);
+	otheredges.clear();
+	persistentedges.clear();
+	//my_edge_tagging3D(ledges, mRes.otheredges, mRes.persistentedges, mRes);  // 填补
+	vector<Vector3f> insert_points_tmp;
+	find_otheredges(otheredges, persistentedges, insert_points_tmp);  // 找出所有在一个方向上分量大于1，可以在已有边上插点的otheredge
+	//edge_tagging3D(ledges);
+	cout << "otheredge.size(): " << otheredges.size() << endl;
+	int insert_points_tmp_size = insert_points_tmp.size(); // 插入的点的个数
+	cout << "insert_points_tmp_size:" << insert_points_tmp_size << endl;
+	cout << "mO_copy.cols():" << mO_copy.cols() << endl;
+	mO_points.clear();
+	for (int i = 0; i < mO_copy.cols(); i++) {
+		V3d pp;
+		for (int j = 0; j < 3; j++) {
+			pp[j] = mO_copy(j, i);
+		}
+		mO_points.push_back(pp);
+	}
+	split_otheredges(otheredges, insert_points_tmp_size); 
+	cout << "mO_copy.cols():" << mO_copy.cols() << endl;
+	cout << "mQ_copy.cols():" << mQ_copy.cols() << endl;
+	// 使用KD树的方法，在log（n）时间内找到：是否有与mO_copy[i]距离一格内的mO_copy[j]，找不到的话则要插点
+	// 先看看缺多少？
+	cout << "mO_points.size(): " << mO_points.size() << endl;
+	KD3d old_tree(mO_points);
+	
+	MergeFindSet merge_set(mO_points.size());
+	std::vector<std::vector<int>> yuanPoints_mOpointid(mO_copy.cols());
+	for (int i = 0; i < mO_points.size(); i++) {
+		auto adj_vertex_ids = checkLocalArea(mO_points[i], old_tree, 0.2*mScale);
+		if (adj_vertex_ids.size() > 1) {  // > 1是为了除去自身
+			yuanPoints_mOpointid[i] = adj_vertex_ids;
+			for (auto j : adj_vertex_ids) {
+				//chongPoints.push_back(mO_points[j]);
+				if (j == i)continue;
+				merge_set.merge(i, j);
+			}
+		};
+	}
+	merge_clustered_nodes(merge_set, mO_points, &stage1_points);
+	cout << "stage1_points.size(): " << stage1_points.size() << endl;
+	std::vector<std::vector<V3d>> yuanPoints(stage1_points.size(), vector<V3d>());
+	std::vector<std::vector<V3d>> chongPoints(stage1_points.size(), vector<V3d>());
+	std::vector<std::vector<int>> yuanPointsId(stage1_points.size(), vector<int>());
+	mO_copy1.resize(3, stage1_points.size());
+	for (int i = 0; i < stage1_points.size(); i++) {
+		for (int k = 0; k < 3; k++){
+			mO_copy1(k, i) = stage1_points[i][k];
+		}
+		auto adj_vertex_ids = checkLocalArea(stage1_points[i], old_tree, 0.2*mScale);
+		if (adj_vertex_ids.size() > 1) {  // > 1是为了除去自身
+			for (auto j : adj_vertex_ids) {
+				chongPoints[i].push_back(mO_points[j]);
+				yuanPoints[i].push_back(tetPoints[j]);
+				yuanPointsId[i].push_back(j);
+			}
+		};
+	}
+	KD3d new_tree(stage1_points);
+	KD3d tet_tree(tetPoints);
+	std::vector<V3d> noval_vertices;
+	Timer<> time_;
+	time_.beginStage("_time_______________________________");
+	std::vector<LatticeCore::QuaternionFrame> qframes;
+	qframes.resize(mQ_copy.cols());
+	for (uint32_t j = 0; j < mQ_copy.cols(); j++) {
+		double x, y, z, w;
+		x = (double)mQ_copy(0, j);
+		y = (double)mQ_copy(1, j);
+		z = (double)mQ_copy(2, j);
+		w = (double)mQ_copy(3, j);
+		qframes[j] = LatticeCore::QuaternionFrame(x, y, z, w);
+	}
+	for (int i = 0; i < stage1_points.size(); i++) {
+		int research_num = 4;//这里插值标架场，用的是最近的六个，或者用距离一格内的所有点，两种差不多
+		auto result = tet_tree.kknnSearch(stage1_points[i], research_num);
+		// interpolate frame from neighboring research_num samples
+		std::vector<LatticeCore::QuaternionFrame> qf;
+		std::vector<double> weight;
+		for (int id : result) {
+			double dist = (stage1_points[i] - tet_tree.get_point(id)).norm();
+			qf.push_back(qframes[id]);
+			weight.push_back(std::exp(-dist * dist));
+			weight.push_back(1.0);
+		}
+		LatticeCore::QuaternionFrame r = LatticeCore::QuaternionFrame::weighted_average(qf, weight);
+		// interpolate frame from neighboring research_num samples
+		const double merge_criterion = mScale * 0.5;
+		const double connect_criterion = mScale * 1.2;
+		
+		std::vector<std::vector<int>> old_v_nv_neighborhood(stage1_points.size());
+
+		auto insert_new_vertex = [&](int i, const V3d& p) {
+			double nearestDist;
+			old_tree.nearestSearch(p, &nearestDist);
+			if (nearestDist < merge_criterion)return;
+			auto nearby_old_vertices = new_tree.radiusSearch(p, connect_criterion);
+			if (nearby_old_vertices.size() < 3)//新增点只有一个邻点，相当于是一个悬点，没有增加的必要
+				return;
+			// no near existing new vertices
+			//for (int k : nearby_old_vertices) {
+			//	for (int j : old_v_nv_neighborhood[k]) {
+			//		if ((p - noval_vertices[j - stage1_points.size()]).norm() < merge_criterion)// 前面新点已插入
+			//			return;
+			//	}
+			//}
+			for (auto k : noval_vertices) {
+					if ((p - k).norm() < merge_criterion)// 前面新点已插入
+						return;
+			}
+			noval_vertices.push_back(p);
+			int noval_id = stage1_points.size() + noval_vertices.size() - 1;
+			for (int k : nearby_old_vertices) {
+				old_v_nv_neighborhood[k].push_back(noval_id);
+			}
+		};
+		Matrix_3 Q = r.to_rotation_matrix();
+		//cout << Q.col(0) << ", " << Q.col(1) << ", " << Q.col(2) << endl;
+		for (int j = 0; j < 3; ++j) {
+			V3d insert_r = stage1_points[i] + Q.col(j)*mScale;
+			insert_new_vertex(i, insert_r);
+			insert_r = stage1_points[i] - Q.col(j) *mScale;
+			insert_new_vertex(i, insert_r);
+		}
+	}
+
+	time_.endStage();
+	vector<V3d> groupPoint;
+	mTs_4V.clear();
+	mTs_4V.resize(mT.cols());
+	for (uint32_t i = 0; i < mT.cols(); ++i)
+		for (uint32_t j = 0; j < 4; ++j)
+			mTs_4V[i].push_back(mT(j, i));
+	vector<tuple<int, int, int>> noval_vertices_nearTetId;
+	for (int i = 0; i < noval_vertices.size(); i++) {
+		auto result = tet_tree.kknnSearch(noval_vertices[i], 4);
+		vector<int> noval_vertices_nearTetIds;
+		for (int j = 0; j < mTs_4V.size(); j++) {
+			for (auto a : mTs_4V[j]) {
+				if (a == result[0]|| a == result[1]|| a == result[2]|| a == result[3]) {
+					noval_vertices_nearTetIds.push_back(j);
+					break;
+				}
+			}
+		}
+		double min_ex_volume_ratio = 100.0;
+		bool find_in_tet = false;
+		int min_ex_volume_ratio_tetid = -1;
+		vector<V3d> min_ex_volume_ratio_tet_4V;
+		for (int j = 0; j < noval_vertices_nearTetIds.size(); j++) {
+			vector<V3d> tet_4V;
+			for (int k = 0; k < 4; k++) {
+				tet_4V.push_back(tetPoints[mTs_4V[noval_vertices_nearTetIds[j]][k]]);
+			}
+			double ex_volume_ratio = 100.0;
+			int tmp = testPointInTet(tet_4V, noval_vertices[i], ex_volume_ratio);
+			if (tmp == ISIN||tmp ==ISONSURFACE) {
+				noval_vertices_nearTetId.push_back(make_tuple(i, j, tmp));
+				groupPoint.push_back(noval_vertices[i]);
+				//groupPoint.insert(groupPoint.end(), tet_4V.begin(), tet_4V.end());
+				find_in_tet = true;
+				break;
+			}
+			else {
+				if (ex_volume_ratio < min_ex_volume_ratio) {
+					min_ex_volume_ratio = ex_volume_ratio;
+					min_ex_volume_ratio_tetid = j;
+					min_ex_volume_ratio_tet_4V = tet_4V;
+				}
+			}
+		}
+		if (!find_in_tet&&min_ex_volume_ratio < 2) {
+			noval_vertices_nearTetId.push_back(make_tuple(i, min_ex_volume_ratio_tetid, ISOUT));
+			groupPoint.push_back(noval_vertices[i]);
+			//groupPoint.insert(groupPoint.end(), min_ex_volume_ratio_tet_4V.begin(), min_ex_volume_ratio_tet_4V.end());
+		}
+	}
+	cout << "noval_vertices_nearTetId: "<< noval_vertices_nearTetId.size() << endl;
+	for (auto a : noval_vertices_nearTetId) {
+		cout << get<0>(a) << ", " << get<1>(a) << ", " << get<2>(a) << endl;
+	}
+
 	for (int i = 0; i < persistentedges.size(); i++) {
 		std::get<4>(persistentedges[i]) = 4; // color
-		//mRes.otheredges.push_back(persistentedges[i]);
+		otheredges.push_back(persistentedges[i]);
 	}
-	int insert_points_size = mRes.insert_points.size();
-	cout << " mRes.insert_points_size:" << insert_points_size << endl;
-	mRes.my_mO[0].resize(3, insert_points_size);
-	for (int i = 0; i < insert_points_size; i++) {
-		for (int j = 0; j < 3; j++) {
-			//cout << mRes.insert_points[i][j] << " ";
-			mRes.my_mO[0](j, i) = mRes.insert_points[i][j];
+
+	//my_mO[0].resize(3, noval_vertices.size());
+	//for (int i = 0; i < noval_vertices.size(); i++) {
+	//	for (int j = 0; j < 3; j++) {
+	//		my_mO[0](j, i) = noval_vertices[i][j];
+	//	}
+	//}
+
+	//my_mO[0].resize(3, insert_points_tmp_size);
+	//for (int i = 0; i < insert_points_tmp_size; i++) {
+	//	for (int j = 0; j < 3; j++) {
+	//		my_mO[0](j, i) = insert_points_tmp[i][j];
+	//	}
+	//}
+	//for (int i = 0; i < noval_vertices.size(); i++) {
+	//	for (int j = 0; j < 3; j++) {
+	//		my_mO[0](j, i + insert_points_tmp_size) = noval_vertices[i][j];
+	//	}
+	//}
+
+	std::unordered_map<string, int> edgeVV;
+	for (int i = 0; i < mpEs.size(); i++) {
+		edgeVV[string(to_string(get<0>(mpEs[i]))+"_"+ to_string(get<1>(mpEs[i])))]=i;
+	}
+	//int chongPointssize = 0;
+	//for (int i = 0; i < chongPoints.size(); i++) {
+	//	chongPointssize += chongPoints[i].size();
+	//}
+	//my_mO[0].resize(3, chongPointssize*2);
+	//int idx = 0;
+	//for (int i = 0; i < chongPoints.size(); i++) {
+	//	for (int k = 0; k < chongPoints[i].size(); k++) {
+	//		for (int j = 0; j < 3; j++) {
+	//			my_mO[0](j, idx) = chongPoints[i][k][j];
+	//		}
+	//		idx++;
+	//	}
+	//}
+	//for (int i = 0; i < chongPoints.size(); i++) {
+	//	for (int k = 0; k < yuanPoints[i].size(); k++) {
+	//		for (int j = 0; j < 3; j++) {
+	//			my_mO[0](j, idx) = yuanPoints[i][k][j];
+	//		}
+	//		idx++;
+	//	}
+	//}
+
+	//char path[512] = "D:/myfile/some_info.txt";
+	//std::fstream f_out_info(path, std::ios::out);
+	vector<int> nDup(20, 0);
+	int sameEdge = 0;
+	vector<vector<vector<V3d>>> vvvector(30, vector<vector<V3d>>());
+	vector<vector<vector<V3d>>> vvvector_mO(30, vector<vector<V3d>>());
+	vector<vector<vector<int>>> vvvectorId(30, vector<vector<int>>());
+	for (int i = 0; i < yuanPointsId.size(); i++) {
+		vvvectorId[yuanPointsId[i].size()].push_back(yuanPointsId[i]);
+		vvvector_mO[yuanPoints[i].size()].push_back(chongPoints[i]);
+		vvvector[yuanPoints[i].size()].push_back(yuanPoints[i]);
+		nDup[yuanPointsId[i].size()]++;
+	}
+	vector<V3d> two_dup;
+	for (int i = 0; i < vvvector[2].size(); i++) {
+		for (auto a : vvvector[2][i]) {
+			two_dup.push_back(a);
 		}
-		//cout << endl;
 	}
-	cout << " mRes.otheredge:" << mRes.otheredges.size() << endl;
-	cout << "ledges.size(): " << ledges.size() << endl;
+	vector<vector<V3d>> points_show;
+	//points_show.push_back(noval_vertices);
+	points_show.push_back(groupPoint);
+	//for (int i = 0; i < vvvector.size(); i++) {
+	//	if (i <= 3)continue;
+	//	for (auto a : vvvector[i]) {
+	//		points_show.push_back(a);
+	//	}
+	//	for (auto a : vvvector_mO[i]) {
+	//		points_show.push_back(a);
+	//	}
+	//}
+	//for (auto a : vvvector[2]) {
+	//	points_show.push_back(a);
+	//}
+	//for (auto a : vvvector_mO[2]) {
+	//	points_show.push_back(a);
+	//}
+	showPoints(points_show);
+	for(auto a: vvvectorId[2]){
+		if (edgeVV.find(string(to_string(a[0]) + "_" + to_string(a[1]))) != edgeVV.end()
+			|| edgeVV.find(string(to_string(a[1]) + "_" + to_string(a[0]))) != edgeVV.end()) {
+			sameEdge++;
+		}
+	}
+	for (int i = 0; i < 20; i++) {
+		if(nDup[i] >0) cout << i << ": " << nDup[i] << endl;
+	}
+	cout << "sameEdge: " << sameEdge << endl;
+
+	//my_mO[0].resize(3, noval_vertices.size());
+	//for (int i = 0; i < noval_vertices.size(); i++) {
+	//	for (int j = 0; j < 3; j++) {
+	//		my_mO[0](j, i) = noval_vertices[i][j];
+	//	}
+	//}
+
 	
+	//cout << "ledges.size(): " << ledges.size() << endl;
 	Timer<> time_decompose;
 
 //========for extraction=============
+	/*
 	// vertex insert.
 	time_decompose.beginStage("---------topology operation begin---------");
 	cout << endl;
@@ -1129,7 +1687,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 	}
 	PF_flag.clear();
 	orient_hybrid_mesh(mV_tag, F_tag, P_tag, PF_flag);
-
+	*/
 //========for extraction=============
 
 //========for quick tets output=============
@@ -1146,7 +1704,7 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 //========for quick tets output=============
 
 //========for combine=============
-/*
+	/*
 	int cnt = 0;
 	for (int i = 0; i < F_tag.size(); i++) {
 		vec3 p[3];
@@ -1319,43 +1877,118 @@ bool MultiResolutionHierarchy::meshExtraction3D(MultiResolutionHierarchy& mRes) 
 */
 //========for combine=============
 
-//========for display result=============
+//========for display result=========
  ////显示高的结果
-	E_final_rend.setZero();
-    E_final_rend.resize(6, 2 * mpEs.size());
-	composit_edges_colors(mV_tag, mpEs, E_final_rend);
-	composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
+	//E_final_rend.setZero();
+ //   E_final_rend.resize(6, 2 * mpEs.size());
+	//composit_edges_colors(mV_tag, mpEs, E_final_rend);
+	//composit_edges_centernodes_triangles(F_tag, mV_tag, E_final_rend, mV_final_rend, F_final_rend);
 // 显示xxx
 	//E_final_rend.setZero();
 	//E_final_rend.resize(6, 2 * mRes.mpEes.size());
 	//composit_edges_colors(mRes.mVv_tag, mRes.mpEes, E_final_rend);
 	//composit_edges_centernodes_triangles(mRes.Ff_tag, mRes.mVv_tag, E_final_rend, mV_final_rend, F_final_rend);
 
-	// 显示otheredges+persistentedges
-	//E_final_rend.setZero();
-	//E_final_rend.resize(6, 2 * mRes.otheredges.size());
-	//composit_edges_colors(mV_tag, mRes.otheredges, E_final_rend);
+	 //显示otheredges+persistentedges
+	E_final_rend.setZero();
+	E_final_rend.resize(6, 2 * otheredges.size());
+	composit_edges_colors(mV_tag, otheredges, E_final_rend);
 
 	 //显示persistentedges
 	//E_final_rend.setZero();
-	//E_final_rend.resize(6, 2 * mRes.persistentedges.size());
-	//composit_edges_colors(mV_tag, mRes.persistentedges, E_final_rend);
+	//E_final_rend.resize(6, 2 * persistentedges.size());
+	//composit_edges_colors(mV_tag, persistentedges, E_final_rend);
 	cout << "done with extraction!" << endl;
 	time_decompose.endStage();
 
 	// 输出补后的位置场点云数据
-	char tet_vertices_set_path[512] = "D:/myfile/dataset/tet_vertices_set.node";
-	write_tet_veitices_set(mV_tag, mRes.my_mO[0], tet_vertices_set_path);
+	char tet_vertices_set_path[512] = "D:/myfile/tet_vertices_set.node";
+	write_tet_veitices_set(mV_tag, my_mO[0], tet_vertices_set_path);
+}
+void MultiResolutionHierarchy::find_otheredges(vector<tuple_E> &otheredges,	vector<tuple_E> &persistentedges, vector<Vector3f>& insert_points_tmp) {
+	Timer<> timer;
+	timer.beginStage("find_otheredges ");
+	char path[512] = "D:/myfile/vvv.txt";
+	std::fstream f_out_info(path, std::ios::out);
+	int othercnt = 0, onedirstep1 = 0, morethanone1 = 0;
+	vector<int> cnt(20, 0);
+	for (auto &e : mpEs) {
+		int eid = get<5>(e);
+		uint32_t v0 = std::get<0>(e), v1 = std::get<1>(e);
+		Vector3f v0p = mV_tag.col(v0), v1p = mV_tag.col(v1);
+		bool is_other_edge = false;
+		Quaternion q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+		std::tuple<short, Float, Vector3f> a_posy = my_posy3D_completeInfo(mO_copy.col(v0), q0, mO_copy.col(v1), q1, mScale, mInvScale, is_other_edge);
+		if (is_other_edge) { othercnt++; }
+		Vector3f len = std::get<2>(a_posy); // 类型，能量，vvv
+		int longcnt = 0, shortcnt = 0, zerocnt, flag = 0;
+		for (uint32_t j = 0; j < 3; j++) {
+			if (round(len[j])>2) {
+				flag = 1;
+			}
+			cnt[round(len[j])]++;
+			if (len[j] >= 1.5) {
+				longcnt++;
+			}
+			else if (len[j] > 0.5&&len[j] < 1.5) {
+				shortcnt++;
+			}
+			else if (len[j] <= 0.5) {
+				zerocnt++;
+			}
+		}
+		// longcnt == 1，即在仅有一个方向上 vvv > 1 时在该方向上插点；
+		// longcnt >= 1，即在至少有一个方向上 vvv > 1 时插点（斜对角线的情况），虽然能更多的补充缺失的点，但有可能造成重复插点；
+		if (longcnt == 1 && shortcnt == 0) {
+			onedirstep1++;
+			otheredges.push_back(e);
+			vector<pair<Vector3f, int>> insert_points;
+			Vector3f vvvround;
+			for (uint32_t j = 0; j < 3; j++) {
+				vvvround[j] = std::round(len[j]);  // 对vvv取整
+				if (vvvround[j] > 1) {  // 需要插入（vvvround[j]-1）个点
+					//cout << "vvvround[j]: " << vvvround[j] << endl;
+					for (int k = 1; k < vvvround[j]; k++) {
+						Vector3f insert_point;
+						for (int l = 0; l < 3; l++) {
+							insert_point[l] = (k*v0p[l] + (vvvround[j] - k)*v1p[l]) / (vvvround[j]);
+						}
+						insert_points.push_back(pair<Vector3f, int>(insert_point, k));
+						insert_points_tmp.push_back(insert_point);
+					}
+				}
+			}
+			if (insert_points.size())
+				pe_insert_points[eid] = insert_points;
+		}
+		if (longcnt == 0 && shortcnt == 1) {
+			persistentedges.push_back(e);
+		}
+		if (longcnt > 1) {
+			morethanone1++;
+			f_out_info << "eid: " << eid << ", vvv:  " << round(len[0]) << ", " << round(len[1])  << ", " << round(len[2])<< std::endl;
+		}
+		//if (longcnt == 1 && shortcnt == 0 && flag == 1) {
+		//	persistentedges.push_back(e);
+		//}
+	}
+	f_out_info << "onedirstep1: " << onedirstep1 << std::endl;
+	f_out_info << "morethanone1: " << morethanone1 << std::endl;
+	for (int i = 0; i < cnt.size(); i++) {
+		f_out_info << "vvv[i]="<< i << ":  "<< cnt[i] << std::endl;
+	}
+	timer.endStage();
 }
 bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, 
-	vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes) {
+	vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes, vector<Vector3f>& insert_points_tmp) {
 	Timer<> timer;
-	timer.beginStage("edge_tagging3D ");
+	timer.beginStage("my_edge_tagging3D ");
 
 	bool hyperlong_edge = false;
 	ledges.clear();
 	int othercnt = 0;
 	for (auto &e : mpEs) {
+		int eid = get<5>(e);
 		uint32_t v0 = std::get<0>(e), v1 = std::get<1>(e);
 		Vector3f v0p = mV_tag.col(v0), v1p = mV_tag.col(v1);
 		bool is_other_edge = false;
@@ -1388,7 +2021,7 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 		// longcnt >= 1，即在至少有一个方向上 vvv > 1 时插点（斜对角线的情况），虽然能更多的补充缺失的点，但有可能造成重复插点，；
 		if (longcnt == 1 && shortcnt == 0) {
 			otheredges.push_back(e);
-			// vector<Vector3f> insert_points;
+		    vector<pair<Vector3f, int>> insert_points;
 			Vector3f vvvround;
 			for (uint32_t j = 0; j < 3; j++) {
 				vvvround[j] = std::round(len[j]);  // 对vvv取整
@@ -1399,10 +2032,13 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 						for (int l = 0; l < 3; l++) {
 							insert_point[l] = (k*v0p[l] + (vvvround[j] - k)*v1p[l]) / (vvvround[j]);
 						}
-						mRes.insert_points.push_back(insert_point);
+						insert_points.push_back(pair<Vector3f, int>(insert_point, k));
+						insert_points_tmp.push_back(insert_point);
 					}
 				}
 			}
+			if(insert_points.size())
+				pe_insert_points[eid]=insert_points;
 		}
 		if (longcnt == 0 && shortcnt == 1) {
 			persistentedges.push_back(e);
@@ -1410,6 +2046,7 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 		std::get<4>(e) = std::get<0>(a_posy); // color
 		std::get<3>(e) = std::get<1>(a_posy); // energy
 	}
+
 	PV_npes_sudo.clear();
 	PV_npes_sudo.resize(mO_copy.cols());
 	for (uint32_t i = 0; i < mpEs.size(); i++) {
@@ -1445,15 +2082,16 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 				qs1[1] = qs[pos1[1]];
 
 				tuple<short, Float, Vector3f> a_posy0 = posy3D_completeInfo(mO_copy.col(v0s[0]), qs0[0], mO_copy.col(v0s[1]), qs0[1], mScale, mInvScale);
-				if (std::get<0>(a_posy0) != Edge_tag::B) {
+				if (std::get<0>(a_posy0) != Edge_tag::B) {  // 只有一个方向上vvv>0.5
 					continue;
 				}
 
 				Vector3f len0 = std::get<2>(a_posy0);
 				short direction0 = -1;
-				for (uint32_t j = 0; j < 3; j++)
+				for (uint32_t j = 0; j < 3; j++)  // 面对角线和体对角线，最后一个方向对应的下标
 					if (len0[j] > 0.5) direction0 = j;
 
+				// 第二条边一样处理，
 				tuple<short, Float, Vector3f> a_posy1 = posy3D_completeInfo(mO_copy.col(v1s[0]), qs1[0], mO_copy.col(v1s[1]), qs1[1], mScale, mInvScale);
 				if (std::get<0>(a_posy1) != Edge_tag::B) {
 					continue;
@@ -1473,7 +2111,7 @@ bool MultiResolutionHierarchy::my_edge_tagging3D(vector<uint32_t> &ledges, vecto
 
 						if (std::get<0>(a_posy) != Edge_tag::R) continue;
 
-						vector<uint32_t> sharede;
+						vector<uint32_t> sharede;// 取两集合交集
 						set_intersection(PV_npes_sudo[v0s[0]].begin(), PV_npes_sudo[v0s[0]].end(), PV_npes_sudo[v0s[1]].begin(), PV_npes_sudo[v0s[1]].end(), back_inserter(sharede));
 						if (!sharede.size()) {
 							system("PAUSE");
@@ -3063,7 +3701,554 @@ void MultiResolutionHierarchy::tagging_collapseTet()
 	}
 	timer.endStage();
 }
+//void MultiResolutionHierarchy::insert_new_vertex(const KD3d& old_vertices,
+//	const std::vector<V3d>& candidate_vertices,
+//	const V3d& new_vertex)
+//{
+//	double insert_threshold = mScale;
+//	std::set<int> new_edges;
+//	int old_vertices_num = (int)mO[0].cols();
+//	auto adj_vertex_ids =
+//		old_vertices.radiusSearch(new_vertex, mScale);
+//	// existing vertices are close to new_vertex, then cancel insert
+//	for (int j : adj_vertex_ids) {
+//		double dist = 0;
+//		//dist = calDistance();
+//		if (dist < insert_threshold) {
+//			return ;
+//		}
+//	}
+//	std::vector<int> candidate_in_neighborhood;
+//	for (int i = 0; i < candidate_vertices.size(); ++i) {
+//		double dist = (candidate_vertices[i] - new_vertex).norm();
+//		if (dist < mScale) {
+//			return ;
+//		}
+//		else if (dist < mScale) {
+//			candidate_in_neighborhood.push_back(i);
+//		}
+//	}
+//	return;
+//}
+template<typename PointV> vector<int> MultiResolutionHierarchy::checkLocalArea(const PointV& gn, KD3d& old_tree, double radius) {
+	V3d gndouble;
+	for (int i = 0; i < 3; i++)gndouble[i] = gn[i];
+	auto result = old_tree.radiusSearch(gndouble, radius);
+	return result;
+}
+//bool MultiResolutionHierarchy::split_otheredge(tuple_E &otheredge, int size) {
+//	{
+//		uint32_t Nvo = mO_copy.cols(), Nv = Nvo + size;
+//		uint32_t Ne = mpEs.size(), Nf = mpFvs.size(), Ne_flag = mpEs.size();
+//		mQ_copy.conservativeResize(4, Nv); // 重分配大空间
+//		mO_copy.conservativeResize(3, Nv);
+//
+//		if (Qquadric)
+//			Quadric_copy.resize(Nv);
+//
+//		vector<short>().swap(mpV_flag); mpV_flag.resize(mO_copy.cols(), false);
+//		vector<short>().swap(mpE_flag); mpE_flag.resize(mpEs.size(), false);
+//		PV_npfs_sudo.clear(); PV_npfs_sudo.resize(Nv);
+//		PV_npvs.resize(Nv);
+//
+//		for (auto e : otheredges)
+//		{
+//			uint32_t eid = get<5>(e);
+//			uint32_t v0 = std::get<0>(e), v1 = std::get<1>(e);
+//			Quaternion q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+//			//compute insert point info
+//			vector<Vector3f> pe_insert_pts = pe_insert_points[eid];
+//			int pe_insert_pts_size = pe_insert_points[eid].size();
+//			cout << "eid: pe_insert_points: " << pe_insert_pts_size << endl;
+//			for (int i = 0; i < pe_insert_pts_size; i++)
+//			{
+//				uint32_t en;
+//				if (i > 0 && Ne > Ne_flag) { // 如果前面已经分割过了，则要分割前面最后分割的一步所得的新边
+//					e = mpEs[Ne];
+//					eid = get<5>(e);
+//					v0 = std::get<0>(e), v1 = std::get<1>(e);
+//					q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+//				}
+//				Vector3f gn;
+//				gn = pe_insert_points[eid][i];
+//				//gn = (mO_copy.col(v0) + mO_copy.col(v1)) * 0.5;// ：位置场初始化为平均值(xxxxxxxxxxxxx)
+//				// 插点前先检查在一个e的局部范围内找是否有点的位置场坐标近似于要插入的gn
+//				auto adj_vertex_ids = checkLocalArea(gn, mScale);
+//				if (adj_vertex_ids.size() > 0) { // 若有，则不插
+//					continue;
+//				}
+//				Quaternion qn = (q0 + q1).normalized(); // 填补的点：标架场初始化为平均值(xxxxxxxxxxxxxx)
+//				uint32_t vn = Nvo++;  // 填补的点的下标
+//				en = Ne++;
+//
+//				if (Qquadric) {
+//					Quadric_copy[vn] = Quadric_copy[v0] + Quadric_copy[v1];
+//					Quadric_copy[vn].getMinimum(gn);
+//				}
+//
+//				mQ_copy.col(vn) = qn; //初始化赋值标架场和位置场
+//				mO_copy.col(vn) = gn;
+//
+//				replace(PV_npvs[v0].begin(), PV_npvs[v0].end(), v1, vn);
+//				replace(PV_npvs[v1].begin(), PV_npvs[v1].end(), v0, vn);
+//				PV_npvs[vn].push_back(v0); // vn的邻点集加入v0和v1
+//				PV_npvs[vn].push_back(v1);
+//
+//				// e0：v0->vn, e1：v1->vn，初始化两条新边的信息
+//				tuple_E e0, e1; std::tuple<short, Float, Vector3f> a_posy;
+//				get<0>(e0) = v0;
+//				get<1>(e0) = vn;
+//				get<2>(e0) = get<2>(e);
+//				a_posy = posy3D_completeInfo(mO_copy.col(v0), q0, gn, qn, mScale, mInvScale);
+//				get<3>(e0) = get<1>(a_posy);
+//				get<4>(e0) = get<0>(a_posy);
+//				get<5>(e0) = eid;  // e0的eid置为分割前的eid
+//				get<6>(e0) = 0;
+//				get<7>(e0) = 0;
+//
+//				get<0>(e1) = v1;
+//				get<1>(e1) = vn;
+//				get<2>(e1) = get<2>(e);
+//				a_posy = posy3D_completeInfo(mO_copy.col(v1), q1, gn, qn, mScale, mInvScale);
+//				get<4>(e1) = get<0>(a_posy);
+//				get<3>(e1) = get<1>(a_posy);
+//				get<5>(e1) = en;
+//				get<6>(e1) = 0;
+//				get<7>(e1) = 0;
+//
+//				// 更新mpEs，PE_npfs
+//				if (Ne > mpEs.size()) {
+//					mpEs.resize(std::max(Ne, (uint32_t)mpEs.size() * 2));
+//					PE_npfs.resize(mpEs.size());
+//					mpV_flag.resize(mpEs.size(), false);
+//					mpE_flag.resize(mpEs.size(), false);
+//				}
+//				mpEs[eid] = e0; mpEs[en] = e1;
+//				PE_npfs[en] = PE_npfs[eid]; // 两条新边共享PE_npfs[eid]
+//
+//				vector<uint32_t> fids, vnpos, vposs; vector<vector<uint32_t>> vsss, vsss_;
+//				for (uint32_t j = 0; j < PE_npfs[eid].size(); j++) {
+//					auto fid = PE_npfs[eid][j]; // 对每一个邻面
+//					//update mpFvs, mpFes
+//					vector<uint32_t> fvs;
+//					for (uint32_t k = 0; k < mpFvs[fid].size(); k++) {// 每一个邻面上，取任意两个相邻点，
+//						auto v_cur = mpFvs[fid][k], v_aft = mpFvs[fid][(k + 1) % mpFvs[fid].size()];
+//						fvs.push_back(v_cur);
+//						if ((v_cur == v0 && v_aft == v1) || (v_cur == v1 && v_aft == v0)) {
+//							fvs.push_back(vn);
+//							vnpos.push_back(k + 1);
+//						}
+//					}
+//					vsss.push_back(mpFvs[fid]);
+//					mpFvs[fid] = fvs;
+//					mpFes[fid].push_back(en);
+//					vsss_.push_back(mpFvs[fid]);
+//
+//					//collect v
+//					for (uint32_t k = 0; k < mpFvs[fid].size(); k++) {
+//						auto vid = mpFvs[fid][k];
+//						if (vid == vn) continue;
+//						if (vid == v0 || vid == v1) continue;
+//						Quaternion q_test = Quaternion::applyRotation(mQ_copy.col(vid), qn);
+//						a_posy = posy3D_completeInfo(gn, qn, mO_copy.col(vid), q_test, mScale, mInvScale);
+//
+//						fids.push_back(fid); vposs.push_back(k);
+//						break;
+//					}
+//				}
+//				if (fids.size()) {
+//					//update es
+//					for (uint32_t j = 0; j < fids.size(); j++) {
+//						auto fid = fids[j];
+//						std::vector<uint32_t> &es = mpFes[fid], es_temp, &vs = mpFvs[fid];
+//						auto vid = vs[vposs[j]];
+//						//orient es direction
+//						for (uint32_t k = 0; k < vs.size(); k++) {
+//							for (auto e : es) {
+//								if ((get<0>(mpEs[e]) == vs[k] || get<0>(mpEs[e]) == vs[(k + 1) % vs.size()]) &&
+//									(get<1>(mpEs[e]) == vs[k] || get<1>(mpEs[e]) == vs[(k + 1) % vs.size()])) {
+//									es_temp.push_back(e); break;
+//								}
+//							}
+//						}
+//						es = es_temp;
+//
+//						vector<vector<uint32_t>> nes2(2), nvs2(2);
+//						int32_t start = vnpos[j], end = vposs[j];
+//
+//						if (find(PV_npvs[vid].begin(), PV_npvs[vid].end(), vs[end]) != PV_npvs[vid].end()) continue;
+//
+//						en = Ne++;
+//						uint32_t fn = Nf++;
+//
+//						tuple_E new_e;
+//						get<0>(new_e) = vs[start];
+//						get<1>(new_e) = vs[end];
+//						get<2>(new_e) = mpF_boundary_flag[fid];
+//						Quaternion q_test = Quaternion::applyRotation(mQ_copy.col(vid), qn);
+//						a_posy = posy3D_completeInfo(gn, qn, mO_copy.col(vid), q_test, mScale, mInvScale);
+//						get<4>(new_e) = get<0>(a_posy);
+//						get<3>(new_e) = get<1>(a_posy);
+//						get<5>(new_e) = en;
+//						get<6>(new_e) = 0;
+//						get<7>(new_e) = 0;
+//
+//						if (Ne > mpEs.size()) {
+//							mpEs.resize(std::max(Ne, (uint32_t)mpEs.size() * 2));
+//							PE_npfs.resize(mpEs.size());
+//							mpE_flag.resize(mpEs.size(), false);
+//						}
+//						mpEs[en] = new_e;
+//
+//						for (uint32_t m = 0; m < 2; m++) {
+//							if (m == 1) std::swap(start, end);
+//							int32_t length = (end - start + vs.size() + 1) % vs.size();
+//							std::vector<uint32_t> nes(length), nvs(length);
+//							for (uint32_t k = 0; k < length; k++) {
+//								nvs[k] = vs[(start + k) % vs.size()];
+//								if (k + 1 == length) nes[k] = std::get<5>(new_e);
+//								else nes[k] = es[(start + k) % es.size()];
+//							}
+//
+//							vector<vector<uint32_t>> fvs_simple_test, fes_simple_test;
+//							fvs_simple_test.push_back(nvs);
+//							fes_simple_test.push_back(nes);
+//							vector<uint32_t> pvs, pes, vs_disgard, es_disgard;
+//							if (!simple_polygon_3D_v2(fvs_simple_test, fes_simple_test, pvs, pes, vs_disgard, es_disgard, false));
+//							nes2[m] = nes; nvs2[m] = nvs;
+//						}
+//						bool this_one = true;
+//						//simple polyhedral
+//						for (auto pid : PF_npps[fid]) {
+//							std::vector<std::vector<uint32_t>> pfes;
+//							for (uint32_t n = 0; n < mpPs[pid].size(); n++) {
+//								if (mpPs[pid][n] != fid)
+//									pfes.push_back(mpFes[mpPs[pid][n]]);
+//								else {
+//									pfes.push_back(nes2[0]);
+//									pfes.push_back(nes2[1]);
+//								}
+//							}
+//							if (!simple_polyhedral_v3(pfes)) {
+//								this_one = false;
+//								break;
+//							}
+//						}
+//
+//						if (!this_one) {
+//							tuple_E e_ran;
+//							mpEs[en] = e_ran;
+//							Ne--;
+//							Nf--;
+//							continue;
+//						}
+//						PV_npvs[vs[start]].push_back(vs[end]);
+//						PV_npvs[vs[end]].push_back(vs[start]);
+//
+//						PE_npfs[en].push_back(fid);
+//						PE_npfs[en].push_back(fn);
+//
+//						for (auto eid_ : nes2[1])
+//							if (eid_ != en && find(PE_npfs[eid_].begin(), PE_npfs[eid_].end(), fid) != PE_npfs[eid_].end())
+//								replace(PE_npfs[eid_].begin(), PE_npfs[eid_].end(), fid, fn);
+//
+//						for (auto pid : PF_npps[fid]) mpPs[pid].push_back(fn);
+//
+//						if (Nf > mpFvs.size()) {
+//							mpFvs.resize(std::max(Nf, (uint32_t)mpFvs.size() * 2));
+//							mpFes.resize(std::max(Nf, (uint32_t)mpFes.size() * 2));
+//							PF_npps.resize(mpFvs.size());
+//							mpF_boundary_flag.resize(mpFvs.size());
+//						}
+//						mpFvs[fid] = nvs2[0];
+//						mpFvs[fn] = nvs2[1];
+//						mpFes[fid] = nes2[0];
+//						mpFes[fn] = nes2[1];
+//						PF_npps[fn] = PF_npps[fid];
+//						mpF_boundary_flag[fn] = mpF_boundary_flag[fid];
+//					}
+//				}
+//			}
+//		}
+//
+//		mpEs.resize(Ne);
+//		PE_npfs.resize(Ne);
+//		mpFvs.resize(Nf);
+//		mpFes.resize(Nf);
+//		PF_npps.resize(Nf);
+//		mpF_boundary_flag.resize(Nf);
+//
+//		mV_tag = mO_copy;
+//		newQ = mQ_copy;
+//
+//		if (Qquadric)
+//			newQu3D = Quadric_copy;
+//	}
+//	return true;
+//}
+bool MultiResolutionHierarchy::split_otheredges(vector<tuple_E> &otheredges, int insert_size) {
+	Timer<> timer;
+	timer.beginStage("split_otheredges clocking...");
+	cout << endl;
+	int dup = 0; // 确定要插入的点的个数，用于后面更新 mO 时重分配空间
+	
+	{
+		uint32_t Nvo = mO_copy.cols(), Nv = Nvo + insert_size;
+		uint32_t Ne = mpEs.size(), Nf = mpFvs.size(), Ne_flag;
+		mQ_copy.conservativeResize(4, Nv); // 重分配大空间
+		mO_copy.conservativeResize(3, Nv);
+	
+		if (Qquadric)
+			Quadric_copy.resize(Nv);
+	
+		vector<short>().swap(mpV_flag); mpV_flag.resize(mO_copy.cols(), false);
+		vector<short>().swap(mpE_flag); mpE_flag.resize(mpEs.size(), false);
+		PV_npfs_sudo.clear(); PV_npfs_sudo.resize(Nv);
+		PV_npvs.resize(Nv);
+		KD3d old_tree(mO_points);
+		for (auto e : otheredges)
+		{
+			Ne_flag = Ne;
+			uint32_t eid = get<5>(e);
+			uint32_t v0 = std::get<0>(e), v1 = std::get<1>(e);
+			Quaternion q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+			//compute insert point info
+			vector<pair<Vector3f, int>> pe_insert_pts = pe_insert_points[eid];
+			int pe_insert_pts_size = pe_insert_points[eid].size();
+			uint32_t en, vn;
+			for (int i = 0; i < pe_insert_pts_size; i++)
+			{
+				if (i > 0 && Ne > Ne_flag) { // 如果前面已经分割过了，则要分割前面最后分割的一步所得的新边
+					e = mpEs[Ne-1];
+					eid = get<5>(e);
+					v0 = std::get<0>(e), v1 = std::get<1>(e);
+					q0 = mQ_copy.col(v0), q1 = Quaternion::applyRotation(mQ_copy.col(v1), q0);
+				}
+				Vector3f gn;
+				gn = pe_insert_points[eid][i].first;
+				//gn = (mO_copy.col(v0) + mO_copy.col(v1)) * 0.5;// ：位置场初始化为平均值(xxxxxxxxxxxxx)
+				// 插点前先检查在一个e的局部范围内找是否有点的位置场坐标近似于要插入的gn
+				
+				auto adj_vertex_ids = checkLocalArea(gn, old_tree, 0.1*mScale);
+			   // cout << "adj_vertex_ids.size(): " << adj_vertex_ids.size() << endl;
+				if (adj_vertex_ids.size() > 0) { // 若有，则不插
+					dup++;
+					//cout << "adj_vertex_ids.size(): " << adj_vertex_ids.size() << endl;
+					continue;
+				}
+				Vector3d dd;
+				for (int k = 0; k < 3; k++)dd[k] = gn[k];
+				mO_points.push_back(dd);
+				Quaternion qn = (q0 + q1).normalized(); // 填补的点：标架场初始化为平均值(xxxxxxxxxxxxxx)
+				vn = Nvo++;  // 填补的点的下标
+				en = Ne++;
+				if (Qquadric) {
+					Quadric_copy[vn] = Quadric_copy[v0] + Quadric_copy[v1];
+					Quadric_copy[vn].getMinimum(gn);
+				}
 
+				mQ_copy.col(vn) = qn; //初始化赋值标架场和位置场
+				mO_copy.col(vn) = gn;
+
+				replace(PV_npvs[v0].begin(), PV_npvs[v0].end(), v1, vn);
+				replace(PV_npvs[v1].begin(), PV_npvs[v1].end(), v0, vn);
+				PV_npvs[vn].push_back(v0); // vn的邻点集加入v0和v1
+				PV_npvs[vn].push_back(v1);
+
+				// e0：v0->vn, e1：v1->vn，初始化两条新边的信息
+				tuple_E e0, e1; std::tuple<short, Float, Vector3f> a_posy;
+				get<0>(e0) = v0;
+				get<1>(e0) = vn;
+				get<2>(e0) = get<2>(e);
+				a_posy = posy3D_completeInfo(mO_copy.col(v0), q0, gn, qn, mScale, mInvScale);
+				get<3>(e0) = get<1>(a_posy);
+				get<4>(e0) = get<0>(a_posy);
+				get<5>(e0) = eid;  // e0的eid置为分割前的eid
+				get<6>(e0) = 0;
+				get<7>(e0) = 0;
+
+				get<0>(e1) = v1;
+				get<1>(e1) = vn;
+				get<2>(e1) = get<2>(e);
+				a_posy = posy3D_completeInfo(mO_copy.col(v1), q1, gn, qn, mScale, mInvScale);
+				get<4>(e1) = get<0>(a_posy);
+				get<3>(e1) = get<1>(a_posy);
+				get<5>(e1) = en;
+				get<6>(e1) = 0;
+				get<7>(e1) = 0;
+
+				// 更新mpEs，PE_npfs
+				if (Ne > mpEs.size()) {
+					mpEs.resize(std::max(Ne, (uint32_t)mpEs.size() * 2));
+					PE_npfs.resize(mpEs.size());
+					mpV_flag.resize(mpEs.size(), false);
+					mpE_flag.resize(mpEs.size(), false);
+				}
+				mpEs[eid] = e0; mpEs[en] = e1;
+				PE_npfs[en] = PE_npfs[eid]; // 两条新边共享PE_npfs[eid]
+
+				vector<uint32_t> fids, vnpos, vposs; vector<vector<uint32_t>> vsss, vsss_;
+				for (uint32_t j = 0; j < PE_npfs[eid].size(); j++) {
+					auto fid = PE_npfs[eid][j]; // 对每一个邻面
+					//update mpFvs, mpFes
+					vector<uint32_t> fvs;
+					for (uint32_t k = 0; k < mpFvs[fid].size(); k++) {// 每一个邻面上，取任意两个相邻点，
+						auto v_cur = mpFvs[fid][k], v_aft = mpFvs[fid][(k + 1) % mpFvs[fid].size()];
+						fvs.push_back(v_cur);
+						if ((v_cur == v0 && v_aft == v1) || (v_cur == v1 && v_aft == v0)) {
+							fvs.push_back(vn);
+							vnpos.push_back(k + 1);
+						}
+					}
+					vsss.push_back(mpFvs[fid]);
+					mpFvs[fid] = fvs;
+					mpFes[fid].push_back(en);
+					vsss_.push_back(mpFvs[fid]);
+
+					//collect v
+					for (uint32_t k = 0; k < mpFvs[fid].size(); k++) {
+						auto vid = mpFvs[fid][k];
+						if (vid == vn) continue;
+						if (vid == v0 || vid == v1) continue;
+						Quaternion q_test = Quaternion::applyRotation(mQ_copy.col(vid), qn);
+						a_posy = posy3D_completeInfo(gn, qn, mO_copy.col(vid), q_test, mScale, mInvScale);
+
+						fids.push_back(fid); vposs.push_back(k);
+						break;
+					}
+				}
+				if (fids.size()) {
+					//update es
+					for (uint32_t j = 0; j < fids.size(); j++) {
+						auto fid = fids[j];
+						std::vector<uint32_t> &es = mpFes[fid], es_temp, &vs = mpFvs[fid];
+						auto vid = vs[vposs[j]];
+						//orient es direction
+						for (uint32_t k = 0; k < vs.size(); k++) {
+							for (auto e : es) {
+								if ((get<0>(mpEs[e]) == vs[k] || get<0>(mpEs[e]) == vs[(k + 1) % vs.size()]) &&
+									(get<1>(mpEs[e]) == vs[k] || get<1>(mpEs[e]) == vs[(k + 1) % vs.size()])) {
+									es_temp.push_back(e); break;
+								}
+							}
+						}
+						es = es_temp;
+
+						vector<vector<uint32_t>> nes2(2), nvs2(2);
+						int32_t start = vnpos[j], end = vposs[j];
+
+						if (find(PV_npvs[vid].begin(), PV_npvs[vid].end(), vs[end]) != PV_npvs[vid].end()) continue;
+
+						en = Ne++;
+						uint32_t fn = Nf++;
+
+						tuple_E new_e;
+						get<0>(new_e) = vs[start];
+						get<1>(new_e) = vs[end];
+						get<2>(new_e) = mpF_boundary_flag[fid];
+						Quaternion q_test = Quaternion::applyRotation(mQ_copy.col(vid), qn);
+						a_posy = posy3D_completeInfo(gn, qn, mO_copy.col(vid), q_test, mScale, mInvScale);
+						get<4>(new_e) = get<0>(a_posy);
+						get<3>(new_e) = get<1>(a_posy);
+						get<5>(new_e) = en;
+						get<6>(new_e) = 0;
+						get<7>(new_e) = 0;
+
+						if (Ne > mpEs.size()) {
+							mpEs.resize(std::max(Ne, (uint32_t)mpEs.size() * 2));
+							PE_npfs.resize(mpEs.size());
+							mpE_flag.resize(mpEs.size(), false);
+						}
+						mpEs[en] = new_e;
+
+						for (uint32_t m = 0; m < 2; m++) {
+							if (m == 1) std::swap(start, end);
+							int32_t length = (end - start + vs.size() + 1) % vs.size();
+							std::vector<uint32_t> nes(length), nvs(length);
+							for (uint32_t k = 0; k < length; k++) {
+								nvs[k] = vs[(start + k) % vs.size()];
+								if (k + 1 == length) nes[k] = std::get<5>(new_e);
+								else nes[k] = es[(start + k) % es.size()];
+							}
+
+							vector<vector<uint32_t>> fvs_simple_test, fes_simple_test;
+							fvs_simple_test.push_back(nvs);
+							fes_simple_test.push_back(nes);
+							vector<uint32_t> pvs, pes, vs_disgard, es_disgard;
+							if (!simple_polygon_3D_v2(fvs_simple_test, fes_simple_test, pvs, pes, vs_disgard, es_disgard, false));
+							nes2[m] = nes; nvs2[m] = nvs;
+						}
+						bool this_one = true;
+						//simple polyhedral
+						for (auto pid : PF_npps[fid]) {
+							std::vector<std::vector<uint32_t>> pfes;
+							for (uint32_t n = 0; n < mpPs[pid].size(); n++) {
+								if (mpPs[pid][n] != fid)
+									pfes.push_back(mpFes[mpPs[pid][n]]);
+								else {
+									pfes.push_back(nes2[0]);
+									pfes.push_back(nes2[1]);
+								}
+							}
+							if (!simple_polyhedral_v3(pfes)) {
+								this_one = false;
+								break;
+							}
+						}
+
+						if (!this_one) {
+							tuple_E e_ran;
+							mpEs[en] = e_ran;
+							Ne--;
+							Nf--;
+							continue;
+						}
+						PV_npvs[vs[start]].push_back(vs[end]);
+						PV_npvs[vs[end]].push_back(vs[start]);
+
+						PE_npfs[en].push_back(fid);
+						PE_npfs[en].push_back(fn);
+
+						for (auto eid_ : nes2[1])
+							if (eid_ != en && find(PE_npfs[eid_].begin(), PE_npfs[eid_].end(), fid) != PE_npfs[eid_].end())
+								replace(PE_npfs[eid_].begin(), PE_npfs[eid_].end(), fid, fn);
+
+						for (auto pid : PF_npps[fid]) mpPs[pid].push_back(fn);
+
+						if (Nf > mpFvs.size()) {
+							mpFvs.resize(std::max(Nf, (uint32_t)mpFvs.size() * 2));
+							mpFes.resize(std::max(Nf, (uint32_t)mpFes.size() * 2));
+							PF_npps.resize(mpFvs.size());
+							mpF_boundary_flag.resize(mpFvs.size());
+						}
+						mpFvs[fid] = nvs2[0];
+						mpFvs[fn] = nvs2[1];
+						mpFes[fid] = nes2[0];
+						mpFes[fn] = nes2[1];
+						PF_npps[fn] = PF_npps[fid];
+						mpF_boundary_flag[fn] = mpF_boundary_flag[fid];
+					}
+				}
+			}
+		}
+		//mO_copy.resize(mO_points.size());
+		mpEs.resize(Ne);
+		PE_npfs.resize(Ne);
+		mpFvs.resize(Nf);
+		mpFes.resize(Nf);
+		PF_npps.resize(Nf);
+		mpF_boundary_flag.resize(Nf);
+
+		mV_tag = mO_copy;
+		newQ = mQ_copy;
+
+		if (Qquadric)
+			newQu3D = Quadric_copy;
+	}
+	cout << "dup: " << dup << endl;
+	timer.endStage();
+	return true;
+}
 bool MultiResolutionHierarchy::split_long_edge3D(vector<uint32_t> &ledges) {
 	Timer<> timer;
 	timer.beginStage("split_long_edge3D clocking...");

@@ -5,7 +5,7 @@
 
 void MultiResolutionHierarchy::smoothOrientationsTri(uint32_t l, bool alignment, bool randomization, bool extrinsic) {
     const MatrixXf &N = mN[l];
-    const SMatrix &L = mL[l];
+    const SSMatrix &L = mL[l];
     MatrixXf &Q = mQ[l];
 
     Timer<> timer;
@@ -21,7 +21,7 @@ void MultiResolutionHierarchy::smoothOrientationsTri(uint32_t l, bool alignment,
             double errorLocal = 0;
             int nLinksLocal = 0;
             for (uint32_t k = range.begin(); k != range.end(); ++k) {
-                SMatrix::InnerIterator it(L, k);
+                SSMatrix::InnerIterator it(L, k);
 
                 uint32_t i = it.row();
                 Vector3f q_i = Vector3f::Zero();
@@ -79,13 +79,12 @@ void MultiResolutionHierarchy::smoothOrientationsTri(uint32_t l, bool alignment,
 
 void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment, bool randomization) {
 	const MatrixXf &N = mN[l];
-    const SMatrix &L = mL[l];
+    const SSMatrix &L = mL[l];
     MatrixXf &Q = mQ[l];
     double error = 0;
     int nLinks = 0;
     MatrixXf Q_new(Q.rows(), Q.cols());
-    tbb::spin_mutex mutex;
-
+	tbb::spin_mutex mutex;
 #if 1
     tbb::parallel_for(
         tbb::blocked_range<uint32_t>(0u, (uint32_t) L.outerSize(), GRAIN_SIZE),
@@ -95,7 +94,7 @@ void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment,
             int nLinksLocal = 0;
             for (uint32_t k = range.begin(); k != range.end(); ++k) {
 #endif 
-				SMatrix::InnerIterator it(L, k);
+				SSMatrix::InnerIterator it(L, k);
 
                 uint32_t i = it.row();
                 Quaternion q_i = Quaternion::Zero();
@@ -148,10 +147,10 @@ void MultiResolutionHierarchy::smoothOrientationsTet(uint32_t l, bool alignment,
 }
 
 void MultiResolutionHierarchy::prolongOrientations(int level) {
-	const SMatrix &P = mP[level];
+	const SSMatrix &P = mP[level];
 	const MatrixXf &N = mN[level];
 	for (int k = 0; k < P.outerSize(); ++k) {
-		SMatrix::InnerIterator it(P, k);
+		SSMatrix::InnerIterator it(P, k);
 		for (; it; ++it) {
 			if (!tetMesh()) {
 				if (nV_boundary_flag[level][it.row()]) continue;

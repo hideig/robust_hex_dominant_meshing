@@ -19,6 +19,7 @@
 #include <chrono>
 #include <vector>
 #include <atomic>
+//#include "eigenDefs.h"
 
 /* Application precision -- can be set to single or double precision */
 #if defined(SINGLE_PRECISION)
@@ -49,11 +50,12 @@ typedef Eigen::Matrix<int32_t, Eigen::Dynamic, Eigen::Dynamic>  MatrixXi;
 typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic> MatrixXu;
 typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic>  MatrixXu8;
 typedef Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic>    MatrixXf;
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>    MatrixXd;
 typedef Eigen::Matrix<Float, 2, 2>                              Matrix2f;
 typedef Eigen::Matrix<Float, 3, 3>                              Matrix3f;
 typedef Eigen::Matrix<int, 3, 3>                                Matrix3i;
 typedef Eigen::Matrix<Float, 4, 4>                              Matrix4f;
-typedef Eigen::SparseMatrix<Float, Eigen::RowMajor>             SMatrix;
+typedef Eigen::SparseMatrix<Float, Eigen::RowMajor>             SSMatrix;
 typedef Eigen::Triplet<Float>                                   Triplet;
 
 using Eigen::Quaternionf;
@@ -87,7 +89,8 @@ enum Edge_tag {
 	B,
 	D,
 	H,
-	L
+	L,
+	K
 };
 
 inline std::string str_tolower(std::string str) {

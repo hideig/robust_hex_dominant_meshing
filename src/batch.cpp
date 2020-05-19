@@ -200,8 +200,7 @@ void batch_process(char *input, char *output,
 	else {
 		mRes.re_color = true;
 		mRes.splitting = true;
-		//mRes.meshExtraction3D();
-		mRes.meshExtraction3D(mRes);
+		mRes.meshExtraction3D();
 		//mRes.extractTet();
 	}
 
