@@ -18,7 +18,7 @@
 #include "dedge.h"
 #include "subdivide.h"
 #include "timer.h"
-#include "candidate_cell.h"
+#include "Combine/candidate_cell.h"
 
 //void mybatch_process(uint32_t dimension, Float tlen, Float scale, int smooth_iter, const TetMeshForCombining &tets) {
 //	MultiResolutionHierarchy mRes;

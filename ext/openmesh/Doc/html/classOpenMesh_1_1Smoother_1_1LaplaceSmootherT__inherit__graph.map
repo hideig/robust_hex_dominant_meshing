@@ -1,0 +1,5 @@
+<map id="G" name="G">
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1JacobiLaplaceSmootherT.html" title="Laplacian Smoothing." alt="" coords="5,237,365,267"/>
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1SmootherT.html" title="Base class for smoothing algorithms." alt="" coords="48,83,323,112"/>
+<area shape="rect" href="$classOpenMesh_1_1Utils_1_1Noncopyable.html" title="This class demonstrates the non copyable idiom." alt="" coords="85,5,285,35"/>
+</map>

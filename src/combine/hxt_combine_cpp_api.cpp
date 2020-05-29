@@ -19,18 +19,18 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <hxt_combine_cpp_api.h>
+
 
 #include <set>
 #include <map>
 #include <sstream>
+#include "hxt_combine_cpp_api.h"
+//#include "basic_types.h"
+//#include "cell_types.h"
+#include "tet_mesh.h"
+//#include "hxt_graph.h"
 
-#include <basic_types.h>
-#include <cell_types.h>
-#include <tet_mesh.h>
-#include <hxt_graph.h>
-
-#include <hxt_omp.h>
+#include "hxt_omp.h"
 #include<queue>
 /**
 * \author Jeanne Pellerin
@@ -86,15 +86,14 @@ namespace {
       const double* cellQualities,
       vector<bool>& selected)
     {
-      // cell 按质量由高到底排序
-      std::vector<CellIndex> reorder = orderCellDecreasingQuality(cells, cellQualities);
+      std::vector<HexVertexIndex> reorder = orderCellDecreasingQuality(cells, cellQualities);
 
       for (unsigned int i = 0; i < reorder.size(); ++i) {
         CellIndex cellId = reorder[i];
         if (selected[cellId]) continue;
         else {
           const HXTCombineCell& cell = cells[cellId];
-          if (isCellCompatible(cell)) { // 标记选中cell时，添加由于选中该cell而附带的约束
+          if (isCellCompatible(cell)) {
             selected[cellId] = true;
             addCellCompatibilityConstraints(cells[cellId]);
           }
@@ -106,7 +105,6 @@ namespace {
       const double* cellQualities,
       vector<bool>& selected)
     {
-      // cell 按质量由高到底排序
       std::vector<CellIndex> reorder = orderCellDecreasingQuality(cells, cellQualities);
       std::vector<bool> cellsFlag (cells.size(), false);
     
@@ -163,7 +161,7 @@ namespace {
         
           const HXTCombineCell& cell = cells[cellId];
           if (isCellCompatible(cell)) { // 标记选中cell时，添加由于选中该cell而附带的约束
-            //std::cout <<  "cellId: " << cellId << " a:" <<a++ <<  std::endl;
+           // std::cout <<  "cellId: " << cellId << " a:" <<a++ <<  std::endl;
             std::vector<CellIndex> localGroup;
             // 有多少个分块，从一个中心cell向四周扩展，分析已组合部分的形状
             // 边界部分尝试作拓扑调整，以继续扩展
@@ -206,12 +204,10 @@ namespace {
                 }
               }
             }
-            
-
-           // std::cout << " localGroup.size(): " << localGroup.size() << std::endl;
-
+            std::cout << " localGroup.size(): " << localGroup.size() << std::endl;
             globalGroups.push_back(localGroup);
         }
+		  if (globalGroups.size() == 1)break;
       }
 
       // std::vector<vector<CellIndex>> maxGlobalGroups;
@@ -472,8 +468,7 @@ namespace HXTCombine {
       flags[indices[i]] = false;
   }
 
-  void HXTCombineCellStore::selectCellsGreedy(std::array<bool, nbCellTypes> flags)
-  {
+  void HXTCombineCellStore::selectCellsGreedy(std::array<bool, nbCellTypes> flags) {
     CellGreedySelection selector(mesh_);
 
     // 1. Allocate the selected vectors
@@ -494,8 +489,7 @@ namespace HXTCombine {
 
         selector.computeCompatibleCellCombination(cells, qualities.data(), selected);
         // TODO Pyramids should swallow all quad facets 
-      }
-      else {
+      }else {
         selected.resize(cells.size(), false);
       }
     }
@@ -568,85 +562,85 @@ void HXTCombineCellStore::selectCellsGreedyLocal(std::array<bool, nbCellTypes> f
   *
   * \pre selected is initialized by the client
   */
-  void HXTCombineCellStore::selectCellsGraph(std::array<bool, nbCellTypes> cellType, const TetMeshWrapper& tets)
-  {
-    std::cout << " Implementation is not complete this will do nothing " << std::endl;
-    
-    // 1. Allocate the selected vectors
-    for (unsigned int i = 0; i < cells_.size(); ++i) {
-      selectedCells_[i].resize(cells_[i].size(), false);
-    }
+  //void HXTCombineCellStore::selectCellsGraph(std::array<bool, nbCellTypes> cellType, const TetMeshWrapper& tets)
+  //{
+  //  std::cout << " Implementation is not complete this will do nothing " << std::endl;
+  //  
+  //  // 1. Allocate the selected vectors
+  //  for (unsigned int i = 0; i < cells_.size(); ++i) {
+  //    selectedCells_[i].resize(cells_[i].size(), false);
+  //  }
  
-    // 2. Compute the qualities of all cells
-    std::vector<std::vector<double>> qualities(cells_.size());
-    for (unsigned int i = 0; i < cells_.size(); ++i) {
-      qualities[i].resize(cells_[i].size());
-      computeCellQualityVector(mesh_, cells_[i], qualities[i].data());
-    }
-    // 3. Compute the order of the cells of each type according to their quality
-  //std::vector<CellIndex> reorder = orderCellDecreasingQuality(cells, cellQualities);
-    std::vector<std::vector<CellIndex>> order(cells_.size());
-    for (unsigned int i = 0; i < cells_.size(); ++i) {
-      CompareCells compare(cells_[i], qualities[i].data());
-      for (unsigned int j = 0; j < cells_[i].size(); ++j) order[i].push_back(j);
-      std::sort(order[i].begin(), order[i].end(), compare);
-    }
+  //  // 2. Compute the qualities of all cells
+  //  std::vector<std::vector<double>> qualities(cells_.size());
+  //  for (unsigned int i = 0; i < cells_.size(); ++i) {
+  //    qualities[i].resize(cells_[i].size());
+  //    computeCellQualityVector(mesh_, cells_[i], qualities[i].data());
+  //  }
+  //  // 3. Compute the order of the cells of each type according to their quality
+  ////std::vector<CellIndex> reorder = orderCellDecreasingQuality(cells, cellQualities);
+  //  std::vector<std::vector<CellIndex>> order(cells_.size());
+  //  for (unsigned int i = 0; i < cells_.size(); ++i) {
+  //    CompareCells compare(cells_[i], qualities[i].data());
+  //    for (unsigned int j = 0; j < cells_[i].size(); ++j) order[i].push_back(j);
+  //    std::sort(order[i].begin(), order[i].end(), compare);
+  //  }
 
-    // Computation of the Graph 
-    HXTGraph graph;
-    {
-      
-      auto t1 = std::chrono::high_resolution_clock::now();
-      
-     computeIncompatibilityGraph(graph, { true, false, false, true }, tets);
+  //  // Computation of the Graph 
+  //  HXTGraph graph;
+  //  {
+  //    
+  //    auto t1 = std::chrono::high_resolution_clock::now();
+  //    
+  //   computeIncompatibilityGraph(graph, { true, false, false, true }, tets);
 
-    //  std :: cout << "nbCellTypes: "  <<nbCellTypes <<  std::endl;
-    //  std::vector<HXTCombineCell> cells_s;
-    //   for (unsigned int type = 0; type + 1< nbCellTypes; ++type) {
-    //    if (!cellType[type]) continue;
-    //    const std::vector<HXTCombineCell>& cells2 = cells_[type];
-    //    for (int j= 0; j < cells2.size(); ++j){
-    //      cells_s.push_back(cells2[j]);
-    //    } 
-    //   }
-    //    std :: cout << "cells_s: "  <<cells_s.size() <<  std::endl;
-    //    incompatibilityGraph( tets, cells_s, graph);
-      auto t2 = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> qt(t2 - t1);
-      std::cout << "Incompatibility graph computed in " << qt.count() << " seconds" << std::endl;
-    }
-   
-    // We absolutely need a way to to globally identify a cell in a hybrid mesh 
-    // What did we say ?  index / 10 ? how many types do we plan to have ?
-    unsigned int totalNbCells = 0;
-    std::cout << "cells_.size(): " << cells_.size() << std::endl;
-    for (unsigned int i = 0; i <  cells_.size(); ++i) {
-      std::cout << "cells[i]: " << cells_[i].size() << std::endl;
-      if (cellType[i]) totalNbCells += cells_[i].size();
-    }
-    std::cout << "totalNbCells: " << totalNbCells << std::endl;
-    std::vector<bool> incompatible(totalNbCells, false);
+  //  //  std :: cout << "nbCellTypes: "  <<nbCellTypes <<  std::endl;
+  //  //  std::vector<HXTCombineCell> cells_s;
+  //  //   for (unsigned int type = 0; type + 1< nbCellTypes; ++type) {
+  //  //    if (!cellType[type]) continue;
+  //  //    const std::vector<HXTCombineCell>& cells2 = cells_[type];
+  //  //    for (int j= 0; j < cells2.size(); ++j){
+  //  //      cells_s.push_back(cells2[j]);
+  //  //    } 
+  //  //   }
+  //  //    std :: cout << "cells_s: "  <<cells_s.size() <<  std::endl;
+  //  //    incompatibilityGraph( tets, cells_s, graph);
+  //    auto t2 = std::chrono::high_resolution_clock::now();
+  //    std::chrono::duration<double> qt(t2 - t1);
+  //    std::cout << "Incompatibility graph computed in " << qt.count() << " seconds" << std::endl;
+  //  }
+  // 
+  //  // We absolutely need a way to to globally identify a cell in a hybrid mesh 
+  //  // What did we say ?  index / 10 ? how many types do we plan to have ?
+  //  unsigned int totalNbCells = 0;
+  //  std::cout << "cells_.size(): " << cells_.size() << std::endl;
+  //  for (unsigned int i = 0; i <  cells_.size(); ++i) {
+  //    std::cout << "cells[i]: " << cells_[i].size() << std::endl;
+  //    if (cellType[i]) totalNbCells += cells_[i].size();
+  //  }
+  //  std::cout << "totalNbCells: " << totalNbCells << std::endl;
+  //  std::vector<bool> incompatible(totalNbCells, false);
 
  
-    // Select the cell this is very fast
-    unsigned int from = 0;
-    for (unsigned int type = 0; type < cells_.size(); ++type) {
-      for (unsigned int i = 0; i < cells_[type].size(); ++i) {
-        CellIndex c = order[type][i];
-       if (incompatible[10*c + type]){continue;}
-        else {
-          selectedCells_[type][c] = true;
-          HXTIndex nbAdjacent = hxtGraphGetDegree(graph, c);
-          HXTIndex* adjacents = hxtGraphGetNeighbors(graph, c);
-          for (unsigned int j = 0; j < nbAdjacent; ++j) {
-            CellIndex adj = adjacents[j];
-            incompatible[adj] = true;
-          }
-        }
-      }
-    }  
-    std::cout << "Incted in "  << std::endl;
-  }
+  //  // Select the cell this is very fast
+  //  unsigned int from = 0;
+  //  for (unsigned int type = 0; type < cells_.size(); ++type) {
+  //    for (unsigned int i = 0; i < cells_[type].size(); ++i) {
+  //      CellIndex c = order[type][i];
+  //     if (incompatible[10*c + type]){continue;}
+  //      else {
+  //        selectedCells_[type][c] = true;
+  //        HXTIndex nbAdjacent = hxtGraphGetDegree(graph, c);
+  //        HXTIndex* adjacents = hxtGraphGetNeighbors(graph, c);
+  //        for (unsigned int j = 0; j < nbAdjacent; ++j) {
+  //          CellIndex adj = adjacents[j];
+  //          incompatible[adj] = true;
+  //        }
+  //      }
+  //    }
+  //  }  
+  //  std::cout << "Incted in "  << std::endl;
+  //}
 
 
   // IMPLEMENT THIS !
@@ -654,7 +648,7 @@ void HXTCombineCellStore::selectCellsGreedyLocal(std::array<bool, nbCellTypes> f
   // What did we say ?  index / 10 ? how many types do we plan to have ?
   // Adjacency in the graph need to encode the type of cell as well as its index in any possible way !!
   //void HXTCombineCellStore::computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType)
-  void HXTCombineCellStore::computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType, const TetMeshWrapper& tets)
+ /* void HXTCombineCellStore::computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType, const TetMeshWrapper& tets)
   {
 
 
@@ -671,7 +665,7 @@ void HXTCombineCellStore::selectCellsGreedyLocal(std::array<bool, nbCellTypes> f
        incompatibilityGraph( tets, cells_s, graph);
     std::cout <<" Graph construction from multiple types of cells is not implemented" << std::endl;
   }
-
+*/
 
   unsigned int HXTCombineCellStore::nbSelectedHexes() const 
   {

@@ -19,31 +19,31 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <cell_types.h>
 
-#include <basic_types.h>
+
+//#include "basic_types.h"
 
 #include <cassert>
 #include <map>
 #include <limits.h>
-
+#include "cell_types.h"
 /**
 * \author Jeanne Pellerin
 */
 
 namespace HXTCombine {
   // These declarations are necessary to compile with GCC
-  constexpr CellVertexIndex Tet::facetVertex[][3];
-  constexpr CellVertexIndex Tet::edgeVertex[][2];
+  constexpr CellVertexIndex Teta::facetVertex[][3];
+  constexpr CellVertexIndex Teta::edgeVertex[][2];
 
-  constexpr CellVertexIndex Hex::facetVertex[][4];
-  constexpr CellVertexIndex Hex::edgeVertex[][2];
-  constexpr CellVertexIndex Hex::quadFacetTriangleVertex[][3];
-  constexpr CellVertexIndex Hex::quadFacetDiagonalVertex[][2];
-  constexpr CellFacetIndex  Hex::vertexAdjacentFacet[][3];
-  constexpr CellVertexIndex Hex::vertexAdjacentVertex[][3];
-  constexpr CellVertexIndex Hex::orientedFacetVertex[][4];
-  constexpr unsigned int Hex::vertexToBoundaryTriangle[][8][8];
+  constexpr CellVertexIndex Hexa::facetVertex[][4];
+  constexpr CellVertexIndex Hexa::edgeVertex[][2];
+  constexpr CellVertexIndex Hexa::quadFacetTriangleVertex[][3];
+  constexpr CellVertexIndex Hexa::quadFacetDiagonalVertex[][2];
+  constexpr CellFacetIndex  Hexa::vertexAdjacentFacet[][3];
+  constexpr CellVertexIndex Hexa::vertexAdjacentVertex[][3];
+  constexpr CellVertexIndex Hexa::orientedFacetVertex[][4];
+  constexpr unsigned int Hexa::vertexToBoundaryTriangle[][8][8];
 
 
   constexpr CellVertexIndex Pyramid::facetVertex[][4];
@@ -180,10 +180,10 @@ void computeHexVertexNormalizationPermutation(
   const VertexIndex vertices[8], vector<HexVertexIndex>& permutation)
 {
   permutation.resize(8, NO_ID);
-  permutation[0] = minVertexIndex<Hex>(vertices);
+  permutation[0] = minVertexIndex<Hexa>(vertices);
 
   std::map<VertexIndex, HexVertexIndex> v1v2v3 =
-    diagonalOppositeVerticesIncidentQuadFacets<Hex>(vertices, permutation[0]);
+    diagonalOppositeVerticesIncidentQuadFacets<Hexa>(vertices, permutation[0]);
   unsigned int i = 1;
   for (auto it = v1v2v3.begin(); it != v1v2v3.end(); ++it) {
     permutation[i] = it->second;
@@ -193,10 +193,10 @@ void computeHexVertexNormalizationPermutation(
   trindex v5Adj(permutation[0], permutation[1], permutation[3]);  // v5 is adjacent to v0, v1, v3
   trindex v6Adj(permutation[0], permutation[2], permutation[3]);  // v6 is adjacent to v0, v2, v3
   trindex v7Adj(permutation[1], permutation[2], permutation[3]);  // v7 is adjacent to v1, v2, v3
-  permutation[4] = incidentVertex<Hex>(v4Adj);
-  permutation[5] = incidentVertex<Hex>(v5Adj);
-  permutation[6] = incidentVertex<Hex>(v6Adj);
-  permutation[7] = incidentVertex<Hex>(v7Adj);
+  permutation[4] = incidentVertex<Hexa>(v4Adj);
+  permutation[5] = incidentVertex<Hexa>(v5Adj);
+  permutation[6] = incidentVertex<Hexa>(v6Adj);
+  permutation[7] = incidentVertex<Hexa>(v7Adj);
 }
 
 }

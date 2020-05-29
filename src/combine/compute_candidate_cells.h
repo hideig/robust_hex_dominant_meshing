@@ -61,7 +61,7 @@ inline double cellQuality(const TetMeshWrapper& tets, const vector<VertexIndex>&
   for (unsigned int i = 0; i < vertices.size(); ++i) {
     points[i] = tets.point(vertices[i]);
   }
-  if      (vertices.size() == 8) return cellApproximateQuality<Hex>(points.data());
+  if      (vertices.size() == 8) return cellApproximateQuality<Hexa>(points.data());
   else if (vertices.size() == 6) return cellApproximateQuality<Prism>(points.data());
   else if (vertices.size() == 5) return cellApproximateQuality<Pyramid>(points.data()); 
   else return -1.;
@@ -161,9 +161,9 @@ void computeAllPyramids(ACTION& actionOnPyramid, const TetMeshForCombining& M, d
       VertexIndex c = M.vertex(adj, adjFacet);
 
       for (TetFacetVertexIndex v = 0; v < 3; ++v) {
-        TetVertexIndex ve = Tet::facetVertex[f][v];
-        TetVertexIndex vd = Tet::facetVertex[f][(v+1)%3];
-        TetVertexIndex vb = Tet::facetVertex[f][(v+2)%3];
+        TetVertexIndex ve = Teta::facetVertex[f][v];
+        TetVertexIndex vd = Teta::facetVertex[f][(v+1)%3];
+        TetVertexIndex vb = Teta::facetVertex[f][(v+2)%3];
 
         VertexIndex e = M.vertex(t, ve);
         VertexIndex b = M.vertex(t, vb);

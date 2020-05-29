@@ -37,7 +37,7 @@
 
 #include "predicates.h"
 #include <vector>
-#include "hxt_tools.h"
+#include "Combine/hxt_tools.h"
 
 static int sign(double v) {
   if (v > 0) return 1;

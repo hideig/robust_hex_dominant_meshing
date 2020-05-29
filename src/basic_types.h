@@ -29,7 +29,7 @@
 #include <iostream>
 #include <vector>
 
-#include "predicates.h"
+#include "Combine/predicates.h"
 
 /**
 * \addtogroup Combine

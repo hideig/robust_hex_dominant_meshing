@@ -3,8 +3,8 @@
 #include "timer.h"
 #include "bvh.h"
 #include <nanogui/serializer/opengl.h>
-#include "hxt_combine_cpp_api.h"
-#include "tet_mesh.h"
+#include "Combine/hxt_combine_cpp_api.h"
+#include "Combine/tet_mesh.h"
 using namespace HXTCombine;
 //int my_process(const MatrixXf &V_, const MatrixXu &F_, const MatrixXu &T_);
 int my_process(const MultiResolutionHierarchy &mRes, HXTCombineCellStore* combineRes);
@@ -135,7 +135,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     window->setPosition(Vector2i(15, 15));
     window->setLayout(new GroupLayout());
 
-	PopupButton *openBtn0 = new PopupButton(window, "Open mesh");
+	PopupButton *openBtn0 = new PopupButton(window, "Open obj");
 	openBtn0->setBackgroundColor(Color(0, 255, 0, 25));
 	openBtn0->setIcon(ENTYPO_ICON_FOLDER);
 	Popup *popup0 = openBtn0->popup();
@@ -171,6 +171,75 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 	    if(!mRes.load(filename2)) return; 
  //	if(!mRes.my_load(filename2)) return;
+		mScaleBox->setValue(mRes.scale());
+
+		filename = filename2;
+		mRes.outpath = filename2;
+		/* Default view setup */
+		mCamera.arcball = Arcball();
+		mCamera.arcball.setSize(mSize);
+		mCamera.modelTranslation = -mRes.aabb().center().cast<float>();
+		mCamera.modelZoom = 3.0f / mRes.aabb().extents().cwiseAbs().maxCoeff();
+		mCamera.zoom = 1.0f;
+		mLightPosition = Vector3f(0.0f, 0.3f, 5.0f);
+		mBaseColor = Vector4f(0.4f, 0.5f, 0.7f, 1.f);
+		mOtherPositionColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
+		//mBaseColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
+		mBaseColorBoundary = mRes.tetMesh() ? Vector4f(0.0f, 0.0f, 1.0f, .2f) : mBaseColor;
+		mSpecularColor = Vector4f(1.f, 1.f, 1.f, 1.f);
+		mSpecularColorBoundary = mRes.tetMesh() ? Vector4f(1.f, 1.f, 1.f, .2f) : mSpecularColor;
+		mTranslate = false;
+
+	});
+
+	if (mRes.mV[0].cols()) {
+		/* Default view setup */
+		mCamera.arcball = Arcball();
+		mCamera.arcball.setSize(mSize);
+		mCamera.modelTranslation = -mRes.aabb().center().cast<float>();
+		mCamera.modelZoom = 3.0f / mRes.aabb().extents().cwiseAbs().maxCoeff();
+		mCamera.zoom = 1.0f;
+		mLightPosition = Vector3f(0.0f, 0.3f, 5.0f);
+		mBaseColor = Vector4f(0.4f, 0.5f, 0.7f, 1.f);
+		mOtherPositionColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
+		//mBaseColor = Vector4f(1.0f, 1.0f, 1.0f, 1.f);
+		mBaseColorBoundary = mRes.tetMesh() ? Vector4f(0.0f, 0.0f, 1.0f, .2f) : mBaseColor;
+		mSpecularColor = Vector4f(1.f, 1.f, 1.f, 1.f);
+		mSpecularColorBoundary = mRes.tetMesh() ? Vector4f(1.f, 1.f, 1.f, .2f) : mSpecularColor;
+		mTranslate = false;
+	}
+	PopupButton *openBtn1 = new PopupButton(window, "Open mesh");
+	openBtn1->setBackgroundColor(Color(0, 255, 0, 25));
+	openBtn1->setIcon(ENTYPO_ICON_FOLDER);
+	Popup *popup1 = openBtn1->popup();
+	vscroll = new VScrollPanel(popup1);
+	ImagePanel *panel1 = new ImagePanel(vscroll);
+	panel1->setImages(mExampleImages);
+	panel1->setCallback([&, openBtn1](int i) {
+		openBtn1->setPushed(false);
+
+		std::string filename2 = mExampleImages[i].second;
+		std::string extension;
+		if (filename2.size() > 4)
+			extension = str_tolower(filename2.substr(filename2.size() - 4));
+
+		if (filename2.empty()) {
+#ifdef T_VTAG
+			filename2 = nanogui::file_dialog({
+				{ "obj", "Wavefront OBJ" }, { "off", "OFF" }
+				}, false);
+
+#else
+			filename2 = nanogui::file_dialog({
+				{ "mesh", "3D model format file" }
+				}, false);
+#endif
+			if (filename2 == "")
+				return;
+		}
+
+		 //if (!mRes.load(filename2)) return;
+		if (!mRes.my_load(filename2)) return;
 		mScaleBox->setValue(mRes.scale());
 
 		filename = filename2;
@@ -260,7 +329,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mTmeshingBtn->setFlags(Button::Flags::ToggleButton);
 	mTmeshingBtn->setChangeCallback([&](bool value) {
 		mRes.tet_meshing();
-	//	mRes.my_tet_meshing();
+		//mRes.my_tet_meshing();
 		mRes.build();
 		mTetShader.bind();
 		MatrixXf vertexColors = MatrixXf::Zero(4, mRes.vertexCount());
@@ -286,6 +355,36 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		//mLayers[Layers::OtherPosition]->setChecked(true);
 	});
 
+	mTmeshingBtn = new Button(statePanel, "Volume-Spe", ENTYPO_ICON_FLASH);
+	mTmeshingBtn->setBackgroundColor(Color(0, 0, 255, 25));
+	mTmeshingBtn->setFlags(Button::Flags::ToggleButton);
+	mTmeshingBtn->setChangeCallback([&](bool value) {
+		//mRes.tet_meshing();
+		mRes.my_tet_meshing();
+		mRes.build();
+		mTetShader.bind();
+		MatrixXf vertexColors = MatrixXf::Zero(4, mRes.vertexCount());
+		mTetShader.uploadAttrib("position", mRes.V());
+		mTetShader.uploadIndices(mRes.T());
+		mTetShader.uploadAttrib("color", vertexColors);
+
+		mMeshShader.bind();
+		mMeshShader.shareAttrib(mTetShader, "position");
+		mMeshShader.uploadIndices(mRes.F());
+		mMeshShader.uploadAttrib("normal", mRes.N());
+
+		mOrientationFieldShaderTet.bind();
+		mOrientationFieldShaderTet.shareAttrib(mTetShader, "position");
+		mOrientationFieldShaderTet.uploadAttrib("q", mRes.Q());
+
+		mPositionFieldShader.bind();
+		mPositionFieldShader.uploadAttrib("o", mRes.O());
+		//mOtherPositionShader.bind();
+		//mOtherPositionShader.uploadAttrib("o", mRes.my_O());
+		mLayers[Layers::Boundary]->setChecked(true);
+		mLayers[Layers::PositionField]->setChecked(true);
+		//mLayers[Layers::OtherPosition]->setChecked(true);
+	});
 
 //Rosy
     mSolveOrientationBtn = new Button(window, "Rosy", ENTYPO_ICON_FLASH);

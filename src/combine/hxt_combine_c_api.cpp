@@ -19,13 +19,13 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <hxt_combine_c_api.h>
+#include "hxt_combine_c_api.h"
 
 #include <vector>
-#include <hxt_combine_cell.h>
-#include <tet_mesh.h>
+#include "hxt_combine_cell.h"
+#include "tet_mesh.h"
 
-#include <hxt_combine_cpp_api.h>
+#include "hxt_combine_cpp_api.h"
 
 
 /**
@@ -102,17 +102,17 @@ HXTStatus hxtComputeCellQuality(
 * \brief Build the incompatibility graph for the input cells
 * \details The \param cells are defined as combinations of tets of the \param mesh
 */
-HXTStatus hxtBuildIncompatibilityGraph(
-  HXTMesh* mesh, 
-  HXTCombineCellVector* hexahedra,
-  HXTGraph* graph)
-{
-  // TODO we do not need to build these -- the graph construction should work 
-  // on any not too stupid mesh structure
-  HXTCombine::TetMeshForCombining fullMesh(mesh);
-  
-  HXTCombine::incompatibilityGraph(fullMesh, hexahedra->data, *graph);
-
-  return HXT_STATUS_OK;
-}
+//HXTStatus hxtBuildIncompatibilityGraph(
+//  HXTMesh* mesh, 
+//  HXTCombineCellVector* hexahedra,
+//  HXTGraph* graph)
+//{
+//  // TODO we do not need to build these -- the graph construction should work 
+//  // on any not too stupid mesh structure
+//  HXTCombine::TetMeshForCombining fullMesh(mesh);
+//  
+////  HXTCombine::incompatibilityGraph(fullMesh, hexahedra->data, *graph);
+//
+//  return HXT_STATUS_OK;
+//}
 

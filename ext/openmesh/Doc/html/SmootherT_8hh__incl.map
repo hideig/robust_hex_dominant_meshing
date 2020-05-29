@@ -1,0 +1,11 @@
+<map id="G" name="G">
+<area shape="rect" href="$config_8hh_source.html" title="OpenMesh/Core/System/config.hh" alt="" coords="204,160,425,189"/>
+<area shape="rect" href="$Property_8hh_source.html" title="OpenMesh/Core/Utils/Property.hh" alt="" coords="617,83,833,112"/>
+<area shape="rect" href="$Noncopyable_8hh_source.html" title="OpenMesh/Core/Utils/Noncopyable.hh" alt="" coords="351,83,593,112"/>
+<area shape="rect" href="$Handles_8hh_source.html" title="OpenMesh/Core/Mesh/Handles.hh" alt="" coords="605,315,824,344"/>
+<area shape="rect" href="$BaseProperty_8hh_source.html" title="OpenMesh/Core/Utils/BaseProperty.hh" alt="" coords="899,160,1144,189"/>
+<area shape="rect" href="$StoreRestore_8hh_source.html" title="OpenMesh/Core/IO/StoreRestore.hh" alt="" coords="125,237,357,267"/>
+<area shape="rect" href="$omstream_8hh.html" title="This file provides the streams omlog, omout, and omerr." alt="" coords="899,237,1141,267"/>
+<area shape="rect" href="$SR__binary_8hh_source.html" title="OpenMesh/Core/IO/SR_binary.hh" alt="" coords="112,315,328,344"/>
+<area shape="rect" href="$mostream_8hh_source.html" title="OpenMesh/Core/System/mostream.hh" alt="" coords="899,315,1141,344"/>
+</map>

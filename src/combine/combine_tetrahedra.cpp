@@ -23,53 +23,38 @@
 #include <string>
 #include <chrono>
 
-#include <hxt_option.h>
-#include <hxt_message.h>
+//#include "hxt_option.h"
+//#include "hxt_message.h"
 
-#include <algorithms.h>
-#include <tet_mesh.h>
-#include <hxt_combine_cpp_api.h>
-#include <hxt_combine_cell.h>
-#include "batch.h"
+#include "algorithms.h"
+#include "tet_mesh.h"
+#include "hxt_combine_cpp_api.h"
+#include "hxt_combine_cell.h"
+using namespace HXTCombine;
 /**
 * \file combine_tetrahedra.cpp Executable to generate a hex-dominant mesh from a tet mesh
 * \author Jeanne Pellerin
 */
-void mybatch_process(uint32_t dimension = 3, Float tlen = 1.0, Float scale = 3, int smooth_iter = 10,  const HXTCombine::TetMeshForCombining &tets);
-int main(int argc, char *argv[]){ 
+//int my_process(const MatrixXf &V_, const MatrixXu &F_, const MatrixXu &T_){
+int my_process(const MultiResolutionHierarchy& mRes, HXTCombineCellStore* combineRes) {
+
 
   using namespace HXTCombine;
-
-  char* inputFile = NULL;
-  char* outputFile = NULL;
-  double minQuality = 0.; // necessary as long as I do not have the pyramid quality
+  char* outputFile = "H://xxx.msh";
+  double minQuality = 0.3; // necessary as long as I do not have the pyramid quality
 
   int hexFlag = 1;
-int prismFlag = 1;
-int pyramidFlag = 1;
-//  int prismFlag = 0;
-  //int pyramidFlag = 0;
-  
-  HXTOptionList *list;
-  HXT_CHECK(hxtOptionListCreate(&list, "IndirectMeshing"));
+  //int prismFlag = 1;
+  //int pyramidFlag = 1;
+  int prismFlag = 0;
+  int pyramidFlag = 0;
 
-  HXT_CHECK(hxtOptionListAdd(list, "input", "input .mesh file", HXT_OPTION_STRING, HXT_OPTION_DEFAULT, &inputFile));
-  HXT_CHECK(hxtOptionListAdd(list, "output", "output .msh file", HXT_OPTION_STRING, HXT_OPTION_DEFAULT, &outputFile));
-  HXT_CHECK(hxtOptionListAdd(list, "quality", "min. required quality", HXT_OPTION_DOUBLE, HXT_OPTION_DEFAULT, &minQuality));
-  HXT_CHECK(hxtOptionListAdd(list, "hex", "compute hexes", HXT_OPTION_INT, HXT_OPTION_DEFAULT, &hexFlag));
-  HXT_CHECK(hxtOptionListAdd(list, "prism", "compute prisms", HXT_OPTION_INT, HXT_OPTION_DEFAULT, &prismFlag));
-  HXT_CHECK(hxtOptionListAdd(list, "pyramid", "compute pyramids", HXT_OPTION_INT, HXT_OPTION_DEFAULT, &pyramidFlag));
-  
-  HXT_CHECK(hxtOptionListParseArgv(list, argc, argv, "IndirectMeshing"));
-
-  const std::string inputFileStr(inputFile);
   const std::string outputFileStr(outputFile);
 
   // Using my mesh
   MeshStore ioMesh;
-  readFileMESH(inputFileStr, ioMesh);
- // myreadFileMESH(inputFileStr, ioMesh);
-
+  //readFileMESH(inputFileStr, ioMesh);
+  myReadFileMESH(mRes.mV[0], mRes.mF, mRes.mT, ioMesh);
   auto start0 = std::chrono::high_resolution_clock::now();
   
   TetMeshForCombining tets(&ioMesh);
@@ -82,71 +67,48 @@ int pyramidFlag = 1;
 
   HXTCombineCellStore TheResult(tets);
 
-
-
-
-// 此处用高的方法计算方向场和位置场的优化
-mybatch_process(3, 1.0, 3, 10, tets);
-
-
-
   if( hexFlag) {
     TheResult.computeHexes(minQuality);
-
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> t0(finish - start);
-
-    std::cout << TheResult.hexes().size() << " potential hexes computed in "
-      << t0.count() << " seconds" << std::endl;
+    std::cout << TheResult.hexes().size() << " potential hexes computed in " << t0.count() << " seconds" << std::endl;
   }
-
-
 
   if( prismFlag ) {
     auto start = std::chrono::high_resolution_clock::now();
-    
     TheResult.computePrisms(minQuality);
-    
     auto finish = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> tPrism(finish - start);
-
-    std::cout << TheResult.prisms().size() << " potential prisms computed in "
-      << tPrism.count() << " seconds" << std::endl;
+	std::chrono::duration<double> tPrism(finish - start);
+    std::cout << TheResult.prisms().size() << " potential prisms computed in " << tPrism.count() << " seconds" << std::endl;
   }
-
 
   if (pyramidFlag) {
     auto start = std::chrono::high_resolution_clock::now();
-
     TheResult.computePyramids(minQuality);
-
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> tPyramid(finish - start);
-
-    std::cout << TheResult.pyramids().size() << " potential pyramids computed in "
-      << tPyramid.count() << " seconds" << std::endl;
+    std::cout << TheResult.pyramids().size() << " potential pyramids computed in " << tPyramid.count() << " seconds" << std::endl;
   }
 
   auto startSelect = std::chrono::high_resolution_clock::now();
 
   std::array<bool, 4> cellTypes { bool(hexFlag), bool(prismFlag), bool(pyramidFlag), true };
   // tf_怎样优化候选cell的选择策略
- //TheResult.selectCellsGreedy(cellTypes);
-  TheResult.selectCellsGreedyLocal(cellTypes);
-//   TheResult.selectCellsGraph(cellTypes, tets);
+  TheResult.selectCellsGreedy(cellTypes);
+ // TheResult.selectCellsGreedyLocal(cellTypes);
   auto endSelect = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> ts(endSelect - startSelect);
 
-  if (hexFlag)     std::cout << nbTrueValues(TheResult.selectedHexes())    << " selected hexes" << std::endl;
+  if (hexFlag) std::cout << nbTrueValues(TheResult.selectedHexes())    << " selected hexes" << std::endl;
+  // 计算下六面体体积占比
   //double hexsVolume = TheResult.computeHexesVolume();
 //  std::cout << " hexsVolume: "   << hexsVolume << std::endl;
 
   if (prismFlag)   std::cout << nbTrueValues(TheResult.selectedPrisms())   << " selected prisms" << std::endl;
   if (pyramidFlag) std::cout << nbTrueValues(TheResult.selectedPyramids()) << " selected pyramids" << std::endl;
   std::cout << nbTrueValues(TheResult.selectedTets()) << " tetrahedra remain" << std::endl;
-
   std::cout << "Timings cell selection "<<  ts.count() << "seconds" << std::endl;
   TheResult.saveMSH(outputFileStr, cellTypes);
-  HXT_CHECK(hxtOptionListDelete(&list));
+
   return HXT_STATUS_OK;
 }

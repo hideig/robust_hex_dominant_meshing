@@ -28,9 +28,9 @@
 #include <set>
 #include <array>
 
-#include <basic_types.h>
-#include <tet_mesh.h>
-#include <hxt_combine_cell.h>
+#include "basic_types.h"
+#include "tet_mesh.h"
+#include "hxt_combine_cell.h"
 
 /**
 * \file candidate_cell.h Internal structure building combination of tetrahedra 
@@ -65,8 +65,8 @@ public:
       vertices_[i] = vertices[i];
 
     if (vertices.size() == 8) {
-      computeInteriorAndBoundaryTets<Hex>(computeOneInteriorTet<Hex>());
-      computeRealCellBoundary<Hex>();
+      computeInteriorAndBoundaryTets<Hexa>(computeOneInteriorTet<Hexa>());
+      computeRealCellBoundary<Hexa>();
     }
     else if (vertices.size() == 6) {
       computeInteriorAndBoundaryTets<Prism>(computeOneInteriorTet<Prism>());
@@ -116,7 +116,7 @@ public:
   inline bool checkQuadFacetColor() const
   {
     if (!tetMesh().hasColoredTriangles()) return true;
-    else if (isHex())     return checkQuadFacetColor<Hex>();
+    else if (isHex())     return checkQuadFacetColor<Hexa>();
     else if (isPrism())   return checkQuadFacetColor<Prism>();
     else if (isPyramid()) return checkQuadFacetColor<Pyramid>();
     else return false;
@@ -161,7 +161,7 @@ public:
   inline bool isTetInBoundary(TetIndex t) const;
 
   bool isTetInBoundary(TetIndex t) const {
-    if      (isHex())     return isTetInBoundary<Hex>(t);
+    if      (isHex())     return isTetInBoundary<Hexa>(t);
     else if (isPrism())   return isTetInBoundary<Prism>(t);
     else if (isPyramid()) return isTetInBoundary<Pyramid>(t);
     else return false;

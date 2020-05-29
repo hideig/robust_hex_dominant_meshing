@@ -22,7 +22,7 @@
 #ifndef HXT_COMBINE_CELL_TYPES
 #define HXT_COMBINE_CELL_TYPES
 
-#include <basic_types.h>
+#include "basic_types.h"
 
 /**
 * \file cell_type.h Topology of the 3d mesh cells in Combine module
@@ -34,7 +34,7 @@
 
 namespace HXTCombine {
 
-struct Tet {
+struct Teta {
   static const unsigned int nbVertices = 4;
   static const unsigned int nbEdges = 6;
   static const unsigned int nbFacets = 4;
@@ -64,7 +64,7 @@ struct Tet {
 *      \|         \|
 *       0---------NO_ID
 */
-struct Hex {
+struct Hexa {
   static const unsigned int nbVertices = 8;
   static const unsigned int nbEdges = 12;
   static const unsigned int nbFacets = 6;

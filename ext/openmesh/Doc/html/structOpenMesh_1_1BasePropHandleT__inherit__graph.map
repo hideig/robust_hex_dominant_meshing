@@ -1,0 +1,8 @@
+<map id="G" name="G">
+<area shape="rect" href="$structOpenMesh_1_1EPropHandleT.html" title="Handle representing an edge property." alt="" coords="495,5,703,35"/>
+<area shape="rect" href="$structOpenMesh_1_1FPropHandleT.html" title="Handle representing a face property." alt="" coords="495,59,703,88"/>
+<area shape="rect" href="$structOpenMesh_1_1HPropHandleT.html" title="Handle representing a halfedge property." alt="" coords="495,112,703,141"/>
+<area shape="rect" href="$structOpenMesh_1_1MPropHandleT.html" title="Handle representing a mesh property." alt="" coords="493,165,704,195"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="Handle representing a vertex property." alt="" coords="495,219,703,248"/>
+<area shape="rect" href="$classOpenMesh_1_1BaseHandle.html" title="Base class for all handle types." alt="" coords="5,112,168,141"/>
+</map>

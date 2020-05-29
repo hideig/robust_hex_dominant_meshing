@@ -22,21 +22,21 @@
 #ifndef HXT_EXACT_CELL_EVALUATION
 #define HXT_EXACT_CELL_EVALUATION
 
-#include <basic_types.h>
-#include <cell_types.h>
+//#include "basic_types.h"
+#include "cell_types.h"
 #include <float.h>
 
 /** 
  * \file exact_cell_evaluation.h API to evaluate the quality and validity of H1 finite
  * element cells.
  *
- * \authors Amaury Johnen, Jeanne Pellerin, Kilian Verhetsel
+ * \authors Amaury John en, Jeanne Pellerin, Kilian Verhetsel
  *
  * References: 
- *  - Johnen A, Weill J-C, Remacle J-F. Robust and efficient validation of the linear hexahedral element. Procedia Engineering. 2017;203:271–83. [arXiv:1706.01613]
- *  - Johnen A, Remacle J-F, Geuzaine C. Geometrical validity of curvilinear finite elements. Journal of Computational Physics. 2013 Jan;233:359–72. 
- *  - Johnen A, Geuzaine C. Geometrical validity of curvilinear pyramidal finite elements. Journal of Computational Physics. 2015;299:124–129. 
- *  - Johnen A, Geuzaine C, Toulorge T, Remacle J-F. Efficient Computation of the Minimum of Shape Quality Measures on Curvilinear Finite Elements. Procedia Engineering. 2016;163:328–39. 
+ *  - Johnen A, Weill J-C, Remacle J-F. Robust and efficient validation of the linear hexahedral element. Procedia Engineering. 2017;203:271?3. [arXiv:1706.01613]
+ *  - Johnen A, Remacle J-F, Geuzaine C. Geometrical validity of curvilinear finite elements. Journal of Computational Physics. 2013 Jan;233:359?2. 
+ *  - Johnen A, Geuzaine C. Geometrical validity of curvilinear pyramidal finite elements. Journal of Computational Physics. 2015;299:124?29. 
+ *  - Johnen A, Geuzaine C, Toulorge T, Remacle J-F. Efficient Computation of the Minimum of Shape Quality Measures on Curvilinear Finite Elements. Procedia Engineering. 2016;163:328?9. 
  *
  *
  * ATTENTION: Most of the code is not robust to floating point errors.
@@ -70,7 +70,7 @@ inline double cellCornerQuality(
 * Corner quality in a Hex is the Scaled Jacobian. Not fully ROBUST
 */
 template<>
-inline double cellCornerQuality<Hex>(
+inline double cellCornerQuality<Hexa>(
   const vec3& p0, const vec3& p1, const vec3& p2, const vec3& p3);
 
 /**
@@ -103,10 +103,10 @@ inline double evaluateTriangle(const vec3& p0, const vec3& p1, const vec3& p2);
 
 
 template<>
-inline double cellCornerQuality<Hex>(
+inline double cellCornerQuality<Hexa>(
   const vec3& p0, const vec3& p1, const vec3& p2, const vec3& p3)
 {
-  double det = orient3d(p1, p2, p3, p0);
+  double det = orient3dd(p1, p2, p3, p0);
   if (det == 0.) return 0.;
 
   const vec3 u(p1-p0);
@@ -123,7 +123,7 @@ template<>
 inline double cellCornerQuality<Prism>(
   const vec3& p0, const vec3& p1, const vec3& p2, const vec3& p3)
 {  
-  double det = orient3d(p1, p2, p3, p0);
+  double det = orient3dd(p1, p2, p3, p0);
   if (det == 0.) return 0.;
 
   const vec3 u(p1-p0);
@@ -154,7 +154,7 @@ double cellCornerQuality<Pyramid>(
   vec3 p3Bis = p3 - .5 * (p1-p0) - .5 * (p2-p0);
   p3Bis = p0 + std::sqrt(2) * (p3Bis - p0);
 
-  double det = orient3d(p1, p2, p3Bis, p0);
+  double det = orient3dd(p1, p2, p3Bis, p0);
   if (det == 0) return 0.;
 
   double J[3][3] = {

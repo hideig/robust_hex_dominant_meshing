@@ -1,0 +1,10 @@
+<map id="G" name="G">
+<area shape="rect" href="$classMeshViewerWidgetT.html" title="MeshViewerWidgetT\&lt; M \&gt;" alt="" coords="103,83,279,112"/>
+<area shape="rect" href="$classMeshViewerWidgetT.html" title="MeshViewerWidgetT\&lt; Mesh \&gt;" alt="" coords="303,83,497,112"/>
+<area shape="rect" href="$classMeshViewerWidgetT.html" title="MeshViewerWidgetT\&lt; MyMesh \&gt;" alt="" coords="521,83,735,112"/>
+<area shape="rect" href="$classOpenMesh_1_1VDPMSynthesizerViewerWidget.html" title="OpenMesh::VDPMSynthesizerViewerWidget\&lt; VDPMMesh \&gt;" alt="" coords="5,160,376,189"/>
+<area shape="rect" href="$classMeshViewerWidget.html" title="MeshViewerWidget" alt="" coords="481,160,612,189"/>
+<area shape="rect" href="$classDecimaterViewerWidget.html" title="DecimaterViewerWidget" alt="" coords="212,237,372,267"/>
+<area shape="rect" href="$classProgViewerWidget.html" title="ProgViewerWidget" alt="" coords="396,237,524,267"/>
+<area shape="rect" href="$classVDPMClientViewerWidget.html" title="VDPMClientViewerWidget" alt="" coords="548,237,719,267"/>
+</map>

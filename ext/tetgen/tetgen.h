@@ -46,7 +46,8 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-
+#include <algorithm>
+#include <vector>
 // The types 'intptr_t' and 'uintptr_t' are signed and unsigned integer types,
 //   respectively. They are guaranteed to be the same width as a pointer.
 //   They are defined in <stdint.h> by the C99 Standard. However, Microsoft 
@@ -224,6 +225,7 @@ public:
   int numberoftetrahedra;
   int numberofcorners;
   int numberoftetrahedronattributes;
+
 
   // 'facetlist':  An array of facets.  Each entry is a structure of facet.
   // 'facetmarkerlist':  An array of facet markers; one int per facet.
@@ -836,7 +838,6 @@ REAL orient4d(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe,
 class tetgenmesh {
 
 public:
-
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
 // Mesh data structure                                                       //
@@ -878,7 +879,6 @@ public:
   //   - an integer of element marker (and flags);
   // The structure of a tetrahedron is an array of pointers.  Its actual size
   //   (the length of the array) is determined at runtime.
-
   typedef REAL **tetrahedron;
 
   // The subface data structure.  It includes the following fields:
@@ -968,7 +968,7 @@ public:
       return *this;
     }
   };
-
+  std::vector<triface> edge_to_remove;
   class face {
   public:
     shellface *sh;
@@ -1966,7 +1966,9 @@ public:
   void insertconstrainedpoints(tetgenio *addio);
 
   void collectremovepoints(arraypool *remptlist);
+  void my_collectremovepoints(arraypool *remptlist);
   void meshcoarsening();
+  void my_meshcoarsening();
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
@@ -2279,12 +2281,16 @@ public:
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, 
+void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmesh& m,
                     tetgenio *addin = NULL, tetgenio *bgmin = NULL);
+//void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
+//	tetgenio *addin = NULL, tetgenio *bgmin = NULL);
 
 #ifdef TETLIBRARY
-void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
+void my_tetrahedralize(char *switches, tetgenio *in, tetgenio *out, tetgenmesh& m,
                     tetgenio *addin = NULL, tetgenio *bgmin = NULL);
+//void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
+//	tetgenio *addin = NULL, tetgenio *bgmin = NULL);
 #endif // #ifdef TETLIBRARY
 
 ///////////////////////////////////////////////////////////////////////////////

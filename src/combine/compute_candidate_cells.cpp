@@ -19,7 +19,7 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include<hxt_combine_cpp_api.h>
+
 
 #include <cassert>
 #include <chrono>
@@ -33,14 +33,14 @@
 #include <sstream>
 #include <stack>
 #include <vector>
-
-#include <tet_mesh.h>
-#include <basic_types.h>
-#include <hxt_combine_cell.h>
-#include <candidate_cell.h>
-#include <algorithms.h>
-#include <exact_cell_evaluation.h>
-#include <compute_candidate_cells.h>
+#include "hxt_combine_cpp_api.h"
+#include "tet_mesh.h"
+#include "basic_types.h"
+#include "hxt_combine_cell.h"
+#include "candidate_cell.h"
+#include "algorithms.h"
+#include "exact_cell_evaluation.h"
+#include "compute_candidate_cells.h"
 
 #include "hxt_omp.h"
 
@@ -330,146 +330,146 @@ public:
     double cos(double a,double b,double c)  {
       return (a * a + b * b - c * c) / (2 * a * b);
   }
-    double Volume() {
-      double fVolume = 0.0;
-      //劈分成12个不规则四面体；
+  //  double Volume() {
+  //    double fVolume = 0.0;
+  //    //劈分成12个不规则四面体；
 
-      //上
-      double pPA = distance(LeftBackTop, pCenter);
-      double pPB = distance(LeftFrontTop, pCenter);
-      double pPC = distance(RightBackTop, pCenter);
-      double pAB = distance(LeftBackTop, LeftFrontTop);
-      double pAC = distance(LeftBackTop, RightBackTop);
-      double pBC = distance(LeftFrontTop, RightBackTop);
-      double x = cos(pPA, pPB, pAB);
-      double y = cos(pPB, pPC, pBC);
-      double z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z))/6;
+  //    //上
+  //    double pPA = distance(LeftBackTop, pCenter);
+  //    double pPB = distance(LeftFrontTop, pCenter);
+  //    double pPC = distance(RightBackTop, pCenter);
+  //    double pAB = distance(LeftBackTop, LeftFrontTop);
+  //    double pAC = distance(LeftBackTop, RightBackTop);
+  //    double pBC = distance(LeftFrontTop, RightBackTop);
+  //    double x = cos(pPA, pPB, pAB);
+  //    double y = cos(pPB, pPC, pBC);
+  //    double z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z))/6;
 
-      pPA = distance(LeftFrontTop, pCenter);
-      pPB = distance(RightFrontTop, pCenter);
-      pPC = distance(RightBackTop, pCenter);
-      pAB = distance(RightFrontTop, LeftFrontTop);
-      pAC = distance(LeftFrontTop, RightBackTop);
-      pBC = distance(RightFrontTop, RightBackTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    pPA = distance(LeftFrontTop, pCenter);
+  //    pPB = distance(RightFrontTop, pCenter);
+  //    pPC = distance(RightBackTop, pCenter);
+  //    pAB = distance(RightFrontTop, LeftFrontTop);
+  //    pAC = distance(LeftFrontTop, RightBackTop);
+  //    pBC = distance(RightFrontTop, RightBackTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      //下
-      pPA = distance(LeftFrontBottom, pCenter);
-      pPB = distance(RightFrontBottom, pCenter);
-      pPC = distance(RightBackBottom, pCenter);
-      pAB = distance(RightFrontBottom, LeftFrontBottom);
-      pAC = distance(LeftFrontBottom, RightBackBottom);
-      pBC = distance(RightFrontBottom, RightBackBottom);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    //下
+  //    pPA = distance(LeftFrontBottom, pCenter);
+  //    pPB = distance(RightFrontBottom, pCenter);
+  //    pPC = distance(RightBackBottom, pCenter);
+  //    pAB = distance(RightFrontBottom, LeftFrontBottom);
+  //    pAC = distance(LeftFrontBottom, RightBackBottom);
+  //    pBC = distance(RightFrontBottom, RightBackBottom);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      pPA = distance(LeftFrontBottom, pCenter);
-      pPB = distance(RightFrontBottom, pCenter);
-      pPC = distance(RightBackBottom, pCenter);
-      pAB = distance(RightFrontBottom, LeftFrontBottom);
-      pAC = distance(LeftFrontBottom, RightBackBottom);
-      pBC = distance(RightFrontBottom, RightBackBottom);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
-      //左
-      pPA = distance(LeftFrontTop, pCenter);
-      pPB = distance(LeftBackTop, pCenter);
-      pPC = distance(LeftBackBottom, pCenter);
-      pAB = distance(LeftFrontTop, LeftBackTop);
-      pAC = distance(LeftFrontTop, LeftBackBottom);
-      pBC = distance(LeftBackTop, LeftBackBottom);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    pPA = distance(LeftFrontBottom, pCenter);
+  //    pPB = distance(RightFrontBottom, pCenter);
+  //    pPC = distance(RightBackBottom, pCenter);
+  //    pAB = distance(RightFrontBottom, LeftFrontBottom);
+  //    pAC = distance(LeftFrontBottom, RightBackBottom);
+  //    pBC = distance(RightFrontBottom, RightBackBottom);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    //左
+  //    pPA = distance(LeftFrontTop, pCenter);
+  //    pPB = distance(LeftBackTop, pCenter);
+  //    pPC = distance(LeftBackBottom, pCenter);
+  //    pAB = distance(LeftFrontTop, LeftBackTop);
+  //    pAC = distance(LeftFrontTop, LeftBackBottom);
+  //    pBC = distance(LeftBackTop, LeftBackBottom);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      pPA = distance(LeftFrontBottom, pCenter);
-      pPB = distance(LeftBackBottom, pCenter);
-      pPC = distance(LeftFrontTop, pCenter);
-      pAB = distance(LeftFrontBottom, LeftBackBottom);
-      pAC = distance(LeftFrontBottom, LeftFrontTop);
-      pBC = distance(LeftBackBottom, LeftFrontTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
-      //右
-      pPA = distance(RightFrontTop, pCenter);
-      pPB = distance(RightBackTop, pCenter);
-      pPC = distance(RightBackBottom, pCenter);
-      pAB = distance(RightFrontTop, RightBackTop);
-      pAC = distance(RightFrontTop, RightBackBottom);
-      pBC = distance(RightBackTop, RightBackBottom);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    pPA = distance(LeftFrontBottom, pCenter);
+  //    pPB = distance(LeftBackBottom, pCenter);
+  //    pPC = distance(LeftFrontTop, pCenter);
+  //    pAB = distance(LeftFrontBottom, LeftBackBottom);
+  //    pAC = distance(LeftFrontBottom, LeftFrontTop);
+  //    pBC = distance(LeftBackBottom, LeftFrontTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    //右
+  //    pPA = distance(RightFrontTop, pCenter);
+  //    pPB = distance(RightBackTop, pCenter);
+  //    pPC = distance(RightBackBottom, pCenter);
+  //    pAB = distance(RightFrontTop, RightBackTop);
+  //    pAC = distance(RightFrontTop, RightBackBottom);
+  //    pBC = distance(RightBackTop, RightBackBottom);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      pPA = distance(RightFrontBottom, pCenter);
-      pPB = distance(RightBackBottom, pCenter);
-      pPC = distance(RightFrontTop, pCenter);
-      pAB = distance(RightFrontBottom, RightBackBottom);
-      pAC = distance(RightFrontBottom, RightFrontTop);
-      pBC = distance(RightBackBottom, RightFrontTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
-      //前
-      pPA = distance(RightFrontTop, pCenter);
-      pPB = distance(RightFrontBottom, pCenter);
-      pPC = distance(LeftFrontTop, pCenter);
-      pAB = distance(RightFrontBottom, RightFrontTop);
-      pAC = distance(RightFrontTop, LeftFrontTop);
-      pBC = distance(RightFrontBottom, LeftFrontTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    pPA = distance(RightFrontBottom, pCenter);
+  //    pPB = distance(RightBackBottom, pCenter);
+  //    pPC = distance(RightFrontTop, pCenter);
+  //    pAB = distance(RightFrontBottom, RightBackBottom);
+  //    pAC = distance(RightFrontBottom, RightFrontTop);
+  //    pBC = distance(RightBackBottom, RightFrontTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    //前
+  //    pPA = distance(RightFrontTop, pCenter);
+  //    pPB = distance(RightFrontBottom, pCenter);
+  //    pPC = distance(LeftFrontTop, pCenter);
+  //    pAB = distance(RightFrontBottom, RightFrontTop);
+  //    pAC = distance(RightFrontTop, LeftFrontTop);
+  //    pBC = distance(RightFrontBottom, LeftFrontTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      pPA = distance(LeftFrontBottom, pCenter);
-      pPB = distance(RightFrontBottom, pCenter);
-      pPC = distance(LeftFrontTop, pCenter);
-      pAB = distance(RightFrontBottom, LeftFrontBottom);
-      pAC = distance(LeftFrontBottom, LeftFrontTop);
-      pBC = distance(RightFrontBottom, LeftFrontTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
-      //后
-      pPA = distance(RightBackTop, pCenter);
-      pPB = distance(RightBackBottom, pCenter);
-      pPC = distance(LeftBackTop, pCenter);
-      pAB = distance(RightBackBottom, RightBackTop);
-      pAC = distance(RightBackTop, LeftBackTop);
-      pBC = distance(RightBackBottom, LeftBackTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    pPA = distance(LeftFrontBottom, pCenter);
+  //    pPB = distance(RightFrontBottom, pCenter);
+  //    pPC = distance(LeftFrontTop, pCenter);
+  //    pAB = distance(RightFrontBottom, LeftFrontBottom);
+  //    pAC = distance(LeftFrontBottom, LeftFrontTop);
+  //    pBC = distance(RightFrontBottom, LeftFrontTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //    //后
+  //    pPA = distance(RightBackTop, pCenter);
+  //    pPB = distance(RightBackBottom, pCenter);
+  //    pPC = distance(LeftBackTop, pCenter);
+  //    pAB = distance(RightBackBottom, RightBackTop);
+  //    pAC = distance(RightBackTop, LeftBackTop);
+  //    pBC = distance(RightBackBottom, LeftBackTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
 
-      pPA = distance(LeftBackBottom, pCenter);
-      pPB = distance(RightBackBottom, pCenter);
-      pPC = distance(LeftBackTop, pCenter);
-      pAB = distance(RightBackBottom, LeftBackBottom);
-      pAC = distance(LeftBackBottom, LeftBackTop);
-      pBC = distance(RightBackBottom, LeftBackTop);
-      x = cos(pPA, pPB, pAB);
-      y = cos(pPB, pPC, pBC);
-      z = cos(pPA, pPC, pAC);
-      fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
-     // std::cout << "fVolume: " << fVolume << std:: endl;
-      return fVolume;
-  }
+  //    pPA = distance(LeftBackBottom, pCenter);
+  //    pPB = distance(RightBackBottom, pCenter);
+  //    pPC = distance(LeftBackTop, pCenter);
+  //    pAB = distance(RightBackBottom, LeftBackBottom);
+  //    pAC = distance(LeftBackBottom, LeftBackTop);
+  //    pBC = distance(RightBackBottom, LeftBackTop);
+  //    x = cos(pPA, pPB, pAB);
+  //    y = cos(pPB, pPC, pBC);
+  //    z = cos(pPA, pPC, pAC);
+  //    fVolume += (pPA * pPB * pPC * sqrt(1 + 2 * x * y * z - x * x - y * y - z * z)) / 6;
+  //   // std::cout << "fVolume: " << fVolume << std:: endl;
+  //    return fVolume;
+  //}
 
 private:
     vec3 pCenter;
@@ -483,34 +483,34 @@ private:
     vec3 LeftBackBottom;
 };
 
- double HXTCombineCellStore::computeHexesVolume(){
-   double res = 0.0;
-   int size = (this->hexes()).size() ;
-   int ct = 0;
-   for(int i = 0; i < size; i++){
-      if(this->selectedHexes()[i]){
-        std::vector<vec3> pts;
-        ct++;
-        HXTCombineCell& cell = this->hexes()[i];
-        vec3 center;
-        for(int j = 0; j < 8; j++){
-          center+=this->mesh_.point(cell.vertexes[j]);
-        }
-        center/=8;
-        pts.push_back(center);
-        for(int j = 0; j < 8; j++){
-          pts.push_back(this->mesh_.point(cell.vertexes[j]));
-        }
-        hexVol* temp = new hexVol(pts);
-        double ddd = temp->Volume();
-        if(ddd >0 && ddd < 200)res+=ddd;
-        delete temp;
-    }
-   }
-   std::cout <<  "res: " << res << std::endl; 
-   std::cout << "hex number: " << ct << std::endl; 
- return res;
- }
+ //double HXTCombineCellStore::computeHexesVolume(){
+ //  double res = 0.0;
+ //  int size = (this->hexes()).size() ;
+ //  int ct = 0;
+ //  for(int i = 0; i < size; i++){
+ //     if(this->selectedHexes()[i]){
+ //       std::vector<vec3> pts;
+ //       ct++;
+ //       HXTCombineCell& cell = this->hexes()[i];
+ //       vec3 center;
+ //       for(int j = 0; j < 8; j++){
+ //         center+=this->mesh_.point(cell.vertexes[j]);
+ //       }
+ //       center/=8;
+ //       pts.push_back(center);
+ //       for(int j = 0; j < 8; j++){
+ //         pts.push_back(this->mesh_.point(cell.vertexes[j]));
+ //       }
+ //       hexVol* temp = new hexVol(pts);
+ //       double ddd = temp->Volume();
+ //       if(ddd >0 && ddd < 200)res+=ddd;
+ //       delete temp;
+ //   }
+ //  }
+ //  std::cout <<  "res: " << res << std::endl; 
+ //  std::cout << "hex number: " << ct << std::endl; 
+ //return res;
+ //}
 
 void HXTCombineCellStore::computeHexes(double minQuality) {
   StoreCandidateCells store(mesh_, minQuality, hexes());

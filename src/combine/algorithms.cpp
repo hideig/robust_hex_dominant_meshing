@@ -19,7 +19,8 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <algorithms.h>
+#include "algorithms.h"
+#include "algorithms.h"
 
 #include <stdio.h>  
 #include <stdlib.h>  

@@ -1,0 +1,19 @@
+<map id="G" name="G">
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1LaplaceSmootherT.html" title="Laplacian Smoothing." alt="" coords="1759,253,2079,283"/>
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1SmootherT.html" title="Base class for smoothing algorithms." alt="" coords="1316,176,1591,205"/>
+<area shape="rect" href="$classOpenMesh_1_1Utils_1_1Noncopyable.html" title="This class demonstrates the non copyable idiom." alt="" coords="679,16,879,45"/>
+<area shape="rect" href="$classOpenMesh_1_1PolyMesh__ArrayKernelT.html" title="Polygonal mesh based on the ArrayKernel." alt="" coords="635,69,923,99"/>
+<area shape="rect" href="$classOpenMesh_1_1PolyMeshT.html" title="Base type for a polygonal mesh." alt="" coords="245,69,557,99"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="OpenMesh::VPropHandleT\&lt; Point \&gt;" alt="" coords="664,129,893,159"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; Point \&gt;" alt="" coords="276,129,527,159"/>
+<area shape="rect" href="$classOpenMesh_1_1BaseHandle.html" title="Base class for all handle types." alt="" coords="5,236,168,265"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; NormalType \&gt;" alt="" coords="256,183,547,212"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; bool \&gt;" alt="" coords="279,236,524,265"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; Scalar \&gt;" alt="" coords="649,289,908,319"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; typename Mesh::Normal \&gt;" alt="" coords="220,340,583,369"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="OpenMesh::VPropHandleT\&lt; NormalType \&gt;" alt="" coords="644,183,913,212"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="OpenMesh::VPropHandleT\&lt; bool \&gt;" alt="" coords="667,236,891,265"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="OpenMesh::VPropHandleT\&lt; Scalar \&gt;" alt="" coords="1335,231,1572,260"/>
+<area shape="rect" href="$structOpenMesh_1_1EPropHandleT.html" title="OpenMesh::EPropHandleT\&lt; Scalar \&gt;" alt="" coords="1335,285,1572,315"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="OpenMesh::VPropHandleT\&lt; typename Mesh::Normal \&gt;" alt="" coords="948,343,1289,372"/>
+</map>

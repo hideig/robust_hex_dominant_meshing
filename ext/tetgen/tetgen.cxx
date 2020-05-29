@@ -3548,7 +3548,6 @@ bool tetgenbehavior::parse_commandline(int argc, char **argv)
 ////                                                                       ////
 
 // Initialize fast lookup tables for mesh maniplulation primitives.
-
 int tetgenmesh::bondtbl[12][12] = {{0,},};
 int tetgenmesh::enexttbl[12] = {0,};
 int tetgenmesh::eprevtbl[12] = {0,};
@@ -4386,8 +4385,7 @@ void tetgenmesh::pointdealloc(point dyingpoint)
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-tetgenmesh::point tetgenmesh::pointtraverse()
-{
+tetgenmesh::point tetgenmesh::pointtraverse(){
   point newpoint;
 
   do {
@@ -4430,7 +4428,6 @@ void tetgenmesh::maketetrahedron(triface *newtet)
   if (b->varvolume) {
     setvolumebound(newtet->tet, -1.0);
   }
-
   // Initialize the version to be Zero.
   newtet->ver = 11;
 }
@@ -15227,7 +15224,6 @@ enum tetgenmesh::interresult tetgenmesh::scoutsegment(point startpt,point endpt,
       return ACROSSVERT;
     }
   }
-
   // dir is either ACROSSEDGE or ACROSSFACE.
   enextesymself(*searchtet); // Go to the opposite face.
   fsymself(*searchtet); // Enter the adjacent tet.
@@ -23737,6 +23733,29 @@ void tetgenmesh::insertconstrainedpoints(tetgenio *addio)
 // meshcoarsening()    Deleting (selected) vertices.                         //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
+//void tetgenmesh::my_collectremovepoints(arraypool *remptlist)
+//{
+//	point *parypt, ptloop;
+//	ptloop = pointtraverse();
+//	verttype vt;
+//	sort(point_to_remove.begin(), point_to_remove.end());
+//	int i = 0, j = 0;
+//	while (ptloop != NULL) {
+//		if (j >= point_to_remove.size()) break;
+//		if (j < point_to_remove.size() && i == point_to_remove[j]) {
+//			j++;
+//			parypt = &ptloop;
+//			remptlist->newindex((void **)&parypt);
+//		}
+//		ptloop = pointtraverse();
+//	}
+//	//// Unmark all collected vertices.
+//	//for (int i = 0; i < remptlist->objects; i++) {
+//	//	parypt = (point *)fastlookup(remptlist, i);
+//	//	puninfect(*parypt);
+//	//}
+//}
+
 
 void tetgenmesh::collectremovepoints(arraypool *remptlist)
 {
@@ -23856,6 +23875,76 @@ void tetgenmesh::collectremovepoints(arraypool *remptlist)
     puninfect(*parypt);
   }
 }
+//
+//void tetgenmesh::my_meshcoarsening(){
+//	arraypool *remptlist;
+//	// Collect the set of points to be removed
+//	remptlist = new arraypool(sizeof(point *), 10);
+//	my_collectremovepoints(remptlist);
+//	if (remptlist->objects == 0l) {
+//		delete remptlist;
+//		return;
+//	}
+//	if (remptlist->objects > 0l) {
+//		printf("  Removing %ld points...\n", remptlist->objects);
+//	}
+//
+//	point *parypt, *plastpt;
+//	long ms = remptlist->objects;
+//	int nit = 0;
+//	int bak_fliplinklevel = b->fliplinklevel;
+//	b->fliplinklevel = -1;
+//	autofliplinklevel = 1; // Init value.
+//	int i;
+//
+//	while (1) {
+//		printf("    Removing points [%s level = %2d] #:  %ld.\n",
+//				(b->fliplinklevel > 0) ? "fixed" : "auto",
+//				(b->fliplinklevel > 0) ? b->fliplinklevel : autofliplinklevel,
+//				remptlist->objects);
+//
+//		// Remove the list of points.
+//		for (i = 0; i < remptlist->objects; i++) {
+//			parypt = (point *)fastlookup(remptlist, i);
+//			if (removevertexbyflips(*parypt)) {
+//				// Move the last entry to the current place.
+//				plastpt = (point *)fastlookup(remptlist, remptlist->objects - 1);
+//				*parypt = *plastpt;
+//				remptlist->objects--;
+//				i--;
+//			}
+//		}
+//
+//		if (remptlist->objects > 0l) {
+//			if (b->fliplinklevel >= 0) {
+//				break; // We have tried all levels.
+//			}
+//			if (remptlist->objects == ms) {
+//				nit++;
+//				if (nit >= 3) {
+//					// Do the last round with unbounded flip link level.
+//					b->fliplinklevel = 100000;
+//				}
+//			}else {
+//				ms = remptlist->objects;
+//				if (nit > 0) {
+//					nit--;
+//				}
+//			}
+//			autofliplinklevel += b->fliplinklevelinc;
+//		}else {
+//			// All points are removed.
+//			break;
+//		}
+//	} // while (1)
+//
+//	if (remptlist->objects > 0l) {
+//		printf("  %ld points are not removed !\n", remptlist->objects);
+//	}
+//
+//	b->fliplinklevel = bak_fliplinklevel;
+//	delete remptlist;
+//}
 
 void tetgenmesh::meshcoarsening()
 {
@@ -31231,343 +31320,695 @@ void tetgenmesh::outmesh2vtk(char* ofilename)
 // - Check the consistency of the mesh (-C).                                 //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
+using namespace std;
+#include <vector>
 
-void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
-                    tetgenio *addin, tetgenio *bgmin)
+
+void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmesh& m,
+	tetgenio *addin, tetgenio *bgmin)
 {
-  tetgenmesh m;
-  clock_t tv[12], ts[5]; // Timing informations (defined in time.h)
-  REAL cps = (REAL) CLOCKS_PER_SEC;
-
-  tv[0] = clock();
- 
-  m.b = b;
-  m.in = in;
-  m.addin = addin;
-
-  if (b->metric && bgmin && (bgmin->numberofpoints > 0)) {
-    m.bgm = new tetgenmesh(); // Create an empty background mesh.
-    m.bgm->b = b;
-    m.bgm->in = bgmin;
-  }
-
-  m.initializepools();
-  m.transfernodes();
-
-  exactinit(b->verbose, b->noexact, b->nostaticfilter,
-            m.xmax - m.xmin, m.ymax - m.ymin, m.zmax - m.zmin);
-
-  tv[1] = clock();
-
-  if (b->refine) { // -r
-    m.reconstructmesh();
-  } else { // -p
-    m.incrementaldelaunay(ts[0]);
-  }
-
-  tv[2] = clock();
-
-  if (!b->quiet) {
-    if (b->refine) {
-      printf("Mesh reconstruction seconds:  %g\n", ((REAL)(tv[2]-tv[1])) / cps);
-    } else {
-      printf("Delaunay seconds:  %g\n", ((REAL)(tv[2]-tv[1])) / cps);
-      if (b->verbose) {
-        printf("  Point sorting seconds:  %g\n", ((REAL)(ts[0]-tv[1])) / cps);
-      }
-    }
-  }
-
-  if (b->plc && !b->refine) { // -p
-    m.meshsurface();
-
-    ts[0] = clock();
-
-    if (!b->quiet) {
-      printf("Surface mesh seconds:  %g\n", ((REAL)(ts[0]-tv[2])) / cps);
-    }
-
-    if (b->diagnose) { // -d
-      m.detectinterfaces();
-
-      ts[1] = clock();
-
-      if (!b->quiet) {
-        printf("Self-intersection seconds:  %g\n", ((REAL)(ts[1]-ts[0])) / cps);
-      }
-
-      // Only output when self-intersecting faces exist.
-      if (m.subfaces->items > 0l) {
-        m.outnodes(out);
-        m.outsubfaces(out);
-      }
-
-      return;
-    }
-  }
-
-  tv[3] = clock();
-
-  if ((b->metric) && (m.bgm != NULL)) { // -m
-    m.bgm->initializepools();
-    m.bgm->transfernodes();
-    m.bgm->reconstructmesh();
-
-    ts[0] = clock();
-
-    if (!b->quiet) {
-      printf("Background mesh reconstruct seconds:  %g\n",
-             ((REAL)(ts[0] - tv[3])) / cps);
-    }
-
-    if (b->metric) { // -m
-      m.interpolatemeshsize();
-
-      ts[1] = clock();
-
-      if (!b->quiet) {
-        printf("Size interpolating seconds:  %g\n",((REAL)(ts[1]-ts[0])) / cps);
-      }
-    }
-  }
-
-  tv[4] = clock();
-
-  if (b->plc && !b->refine) { // -p
-    if (b->nobisect) { // -Y
-      m.recoverboundary(ts[0]);
-    } else {
-      m.constraineddelaunay(ts[0]);
-    }
-
-    ts[1] = clock();
-
-    if (!b->quiet) {
-      if (b->nobisect) {
-        printf("Boundary recovery ");
-      } else {
-        printf("Constrained Delaunay ");
-      }
-      printf("seconds:  %g\n", ((REAL)(ts[1] - tv[4])) / cps);
-      if (b->verbose) {
-        printf("  Segment recovery seconds:  %g\n",((REAL)(ts[0]-tv[4]))/ cps);
-        printf("  Facet recovery seconds:  %g\n", ((REAL)(ts[1]-ts[0])) / cps);
-      }
-    }
-
-    m.carveholes();
-
-    ts[2] = clock();
-
-    if (!b->quiet) {
-      printf("Exterior tets removal seconds:  %g\n",((REAL)(ts[2]-ts[1]))/cps);
-    }
-
-    if (b->nobisect) { // -Y
-      if (m.subvertstack->objects > 0l) {
-        m.suppresssteinerpoints();
-
-        ts[3] = clock();
-
-        if (!b->quiet) {
-          printf("Steiner suppression seconds:  %g\n",
-                 ((REAL)(ts[3]-ts[2]))/cps);
-        }
-      }
-    }
-  }
-
-  tv[5] = clock();
-
-  if (b->coarsen) { // -R
-    m.meshcoarsening();
-  }
-
-  tv[6] = clock();
-
-  if (!b->quiet) {
-    if (b->coarsen) {
-      printf("Mesh coarsening seconds:  %g\n", ((REAL)(tv[6] - tv[5])) / cps);
-    }
-  }
-
-  if ((b->plc && b->nobisect) || b->coarsen) {
-    m.recoverdelaunay();
-  }
-
-  tv[7] = clock();
-
-  if (!b->quiet) {
-    if ((b->plc && b->nobisect) || b->coarsen) {
-      printf("Delaunay recovery seconds:  %g\n", ((REAL)(tv[7] - tv[6]))/cps);
-    }
-  }
-
-  if ((b->plc || b->refine) && b->insertaddpoints) { // -i
-    if ((addin != NULL) && (addin->numberofpoints > 0)) {
-      m.insertconstrainedpoints(addin); 
-    }
-  }
-
-  tv[8] = clock();
-
-  if (!b->quiet) {
-    if ((b->plc || b->refine) && b->insertaddpoints) { // -i
-      if ((addin != NULL) && (addin->numberofpoints > 0)) {
-        printf("Constrained points seconds:  %g\n", ((REAL)(tv[8]-tv[7]))/cps);
-      }
-    }
-  }
-
-  if (b->quality) {
-    m.delaunayrefinement();    
-  }
-
-  tv[9] = clock();
-
-  if (!b->quiet) {
-    if (b->quality) {
-      printf("Refinement seconds:  %g\n", ((REAL)(tv[9] - tv[8])) / cps);
-    }
-  }
-
-  if ((b->plc || b->refine) && (b->optlevel > 0)) {
-    m.optimizemesh();
-  }
-
-  tv[10] = clock();
-
-  if (!b->quiet) {
-    if ((b->plc || b->refine) && (b->optlevel > 0)) {
-      printf("Optimization seconds:  %g\n", ((REAL)(tv[10] - tv[9])) / cps);
-    }
-  }
-
-  if (!b->nojettison && ((m.dupverts > 0) || (m.unuverts > 0)
-      || (b->refine && (in->numberofcorners == 10)))) {
-    m.jettisonnodes();
-  }
-
-  if ((b->order == 2) && !b->convex) {
-    m.highorder();
-  }
-
-  if (!b->quiet) {
-    printf("\n");
-  }
-
-  if (out != (tetgenio *) NULL) {
-    out->firstnumber = in->firstnumber;
-    out->mesh_dim = in->mesh_dim;
-  }
-
-  if (b->nonodewritten || b->noiterationnum) {
-    if (!b->quiet) {
-      printf("NOT writing a .node file.\n");
-    }
-  } else {
-    m.outnodes(out);
-  }
-
-  if (b->noelewritten) {
-    if (!b->quiet) {
-      printf("NOT writing an .ele file.\n");
-    }
-    m.indexelements();
-  } else {
-    if (m.tetrahedrons->items > 0l) {
-      m.outelements(out);
-    }
-  }
-
-  if (b->nofacewritten) {
-    if (!b->quiet) {
-      printf("NOT writing an .face file.\n");
-    }
-  } else {
-    if (b->facesout) {
-      if (m.tetrahedrons->items > 0l) {
-        m.outfaces(out);  // Output all faces.
-      }
-    } else {
-      if (b->plc || b->refine) {
-        if (m.subfaces->items > 0l) {
-          m.outsubfaces(out); // Output boundary faces.
-        }
-      } else {
-        if (m.tetrahedrons->items > 0l) {
-          m.outhullfaces(out); // Output convex hull faces.
-        }
-      }
-    }
-  }
-
-
-  if (b->nofacewritten) {
-    if (!b->quiet) {
-      printf("NOT writing an .edge file.\n");
-    }
-  } else {
-    if (b->edgesout) { // -e
-      m.outedges(out); // output all mesh edges. 
-    } else {
-      if (b->plc || b->refine) {
-        m.outsubsegments(out); // output subsegments.
-      }
-    }
-  }
-
-  if ((b->plc || b->refine) && b->metric) { // -m
-    m.outmetrics(out);
-  }
-
-  if (!out && b->plc && 
-      ((b->object == tetgenbehavior::OFF) ||
-       (b->object == tetgenbehavior::PLY) ||
-       (b->object == tetgenbehavior::STL))) {
-    m.outsmesh(b->outfilename);
-  }
-
-  if (!out && b->meditview) {
-    m.outmesh2medit(b->outfilename); 
-  }
-
-
-  if (!out && b->vtkview) {
-    m.outmesh2vtk(b->outfilename); 
-  }
-
-  if (b->neighout) {
-    m.outneighbors(out);
-  }
-
-  if (b->voroout) {
-    m.outvoronoi(out);
-  }
-
-
-  tv[11] = clock();
-
-  if (!b->quiet) {
-    printf("\nOutput seconds:  %g\n", ((REAL)(tv[11] - tv[10])) / cps);
-    printf("Total running seconds:  %g\n", ((REAL)(tv[11] - tv[0])) / cps);
-  }
-
-  if (b->docheck) {
-    m.checkmesh(0);
-    if (b->plc || b->refine) {
-      m.checkshells();
-      m.checksegments();
-    }
-    if (b->docheck > 1) {
-      m.checkdelaunay();
-    }
-  }
-
-  if (!b->quiet) {
-    m.statistics();
-  }
+	//tetgenmesh m;
+	clock_t tv[12], ts[5]; // Timing informations (defined in time.h)
+	REAL cps = (REAL)CLOCKS_PER_SEC;
+
+	tv[0] = clock();
+
+	m.b = b;
+	m.in = in;
+	m.addin = addin;
+
+	if (b->metric && bgmin && (bgmin->numberofpoints > 0)) {
+		m.bgm = new tetgenmesh(); // Create an empty background mesh.
+		m.bgm->b = b;
+		m.bgm->in = bgmin;
+	}
+
+	m.initializepools();
+	m.transfernodes();
+
+	exactinit(b->verbose, b->noexact, b->nostaticfilter,
+		m.xmax - m.xmin, m.ymax - m.ymin, m.zmax - m.zmin);
+
+	tv[1] = clock();
+
+	if (b->refine) { // -r
+		m.reconstructmesh();
+	}
+	else { // -p
+		m.incrementaldelaunay(ts[0]);
+	}
+
+	tv[2] = clock();
+
+	if (!b->quiet) {
+		if (b->refine) {
+			printf("Mesh reconstruction seconds:  %g\n", ((REAL)(tv[2] - tv[1])) / cps);
+		}
+		else {
+			printf("Delaunay seconds:  %g\n", ((REAL)(tv[2] - tv[1])) / cps);
+			if (b->verbose) {
+				printf("  Point sorting seconds:  %g\n", ((REAL)(ts[0] - tv[1])) / cps);
+			}
+		}
+	}
+
+	if (b->plc && !b->refine) { // -p
+		m.meshsurface();
+
+		ts[0] = clock();
+
+		if (!b->quiet) {
+			printf("Surface mesh seconds:  %g\n", ((REAL)(ts[0] - tv[2])) / cps);
+		}
+
+		if (b->diagnose) { // -d
+			m.detectinterfaces();
+
+			ts[1] = clock();
+
+			if (!b->quiet) {
+				printf("Self-intersection seconds:  %g\n", ((REAL)(ts[1] - ts[0])) / cps);
+			}
+
+			// Only output when self-intersecting faces exist.
+			if (m.subfaces->items > 0l) {
+				m.outnodes(out);
+				m.outsubfaces(out);
+			}
+
+			return;
+		}
+	}
+
+	tv[3] = clock();
+
+	if ((b->metric) && (m.bgm != NULL)) { // -m
+		m.bgm->initializepools();
+		m.bgm->transfernodes();
+		m.bgm->reconstructmesh();
+
+		ts[0] = clock();
+
+		if (!b->quiet) {
+			printf("Background mesh reconstruct seconds:  %g\n",
+				((REAL)(ts[0] - tv[3])) / cps);
+		}
+
+		if (b->metric) { // -m
+			m.interpolatemeshsize();
+
+			ts[1] = clock();
+
+			if (!b->quiet) {
+				printf("Size interpolating seconds:  %g\n", ((REAL)(ts[1] - ts[0])) / cps);
+			}
+		}
+	}
+
+	tv[4] = clock();
+
+	if (b->plc && !b->refine) { // -p
+		if (b->nobisect) { // -Y
+			m.recoverboundary(ts[0]);
+		}
+		else {
+			m.constraineddelaunay(ts[0]);
+		}
+
+		ts[1] = clock();
+
+		if (!b->quiet) {
+			if (b->nobisect) {
+				printf("Boundary recovery ");
+			}
+			else {
+				printf("Constrained Delaunay ");
+			}
+			printf("seconds:  %g\n", ((REAL)(ts[1] - tv[4])) / cps);
+			if (b->verbose) {
+				printf("  Segment recovery seconds:  %g\n", ((REAL)(ts[0] - tv[4])) / cps);
+				printf("  Facet recovery seconds:  %g\n", ((REAL)(ts[1] - ts[0])) / cps);
+			}
+		}
+
+		m.carveholes();
+
+		ts[2] = clock();
+
+		if (!b->quiet) {
+			printf("Exterior tets removal seconds:  %g\n", ((REAL)(ts[2] - ts[1])) / cps);
+		}
+
+		if (b->nobisect) { // -Y
+			if (m.subvertstack->objects > 0l) {
+				m.suppresssteinerpoints();
+
+				ts[3] = clock();
+
+				if (!b->quiet) {
+					printf("Steiner suppression seconds:  %g\n",
+						((REAL)(ts[3] - ts[2])) / cps);
+				}
+			}
+		}
+	}
+
+	tv[5] = clock();
+
+	if (b->coarsen) { // -R
+		m.meshcoarsening();
+	}
+
+	tv[6] = clock();
+
+	if (!b->quiet) {
+		if (b->coarsen) {
+			printf("Mesh coarsening seconds:  %g\n", ((REAL)(tv[6] - tv[5])) / cps);
+		}
+	}
+
+	if ((b->plc && b->nobisect) || b->coarsen) {
+		m.recoverdelaunay();
+	}
+
+	tv[7] = clock();
+
+	if (!b->quiet) {
+		if ((b->plc && b->nobisect) || b->coarsen) {
+			printf("Delaunay recovery seconds:  %g\n", ((REAL)(tv[7] - tv[6])) / cps);
+		}
+	}
+
+	if ((b->plc || b->refine) && b->insertaddpoints) { // -i
+		if ((addin != NULL) && (addin->numberofpoints > 0)) {
+			m.insertconstrainedpoints(addin);
+		}
+	}
+
+	tv[8] = clock();
+
+	if (!b->quiet) {
+		if ((b->plc || b->refine) && b->insertaddpoints) { // -i
+			if ((addin != NULL) && (addin->numberofpoints > 0)) {
+				printf("Constrained points seconds:  %g\n", ((REAL)(tv[8] - tv[7])) / cps);
+			}
+		}
+	}
+
+	if (b->quality) {
+		m.delaunayrefinement();
+	}
+
+	tv[9] = clock();
+
+	if (!b->quiet) {
+		if (b->quality) {
+			printf("Refinement seconds:  %g\n", ((REAL)(tv[9] - tv[8])) / cps);
+		}
+	}
+
+	if ((b->plc || b->refine) && (b->optlevel > 0)) {
+		m.optimizemesh();
+	}
+
+	tv[10] = clock();
+
+	if (!b->quiet) {
+		if ((b->plc || b->refine) && (b->optlevel > 0)) {
+			printf("Optimization seconds:  %g\n", ((REAL)(tv[10] - tv[9])) / cps);
+		}
+	}
+
+	if (!b->nojettison && ((m.dupverts > 0) || (m.unuverts > 0)
+		|| (b->refine && (in->numberofcorners == 10)))) {
+		m.jettisonnodes();
+	}
+
+	if ((b->order == 2) && !b->convex) {
+		m.highorder();
+	}
+
+	if (!b->quiet) {
+		printf("\n");
+	}
+
+	if (out != (tetgenio *)NULL) {
+		out->firstnumber = in->firstnumber;
+		out->mesh_dim = in->mesh_dim;
+	}
+
+	if (b->nonodewritten || b->noiterationnum) {
+		if (!b->quiet) {
+			printf("NOT writing a .node file.\n");
+		}
+	}
+	else {
+		m.outnodes(out);
+	}
+
+	if (b->noelewritten) {
+		if (!b->quiet) {
+			printf("NOT writing an .ele file.\n");
+		}
+		m.indexelements();
+	}
+	else {
+		if (m.tetrahedrons->items > 0l) {
+			m.outelements(out);
+		}
+	}
+
+	if (b->nofacewritten) {
+		if (!b->quiet) {
+			printf("NOT writing an .face file.\n");
+		}
+	}
+	else {
+		if (b->facesout) {
+			if (m.tetrahedrons->items > 0l) {
+				m.outfaces(out);  // Output all faces.
+			}
+		}
+		else {
+			if (b->plc || b->refine) {
+				if (m.subfaces->items > 0l) {
+					m.outsubfaces(out); // Output boundary faces.
+				}
+			}
+			else {
+				if (m.tetrahedrons->items > 0l) {
+					m.outhullfaces(out); // Output convex hull faces.
+				}
+			}
+		}
+	}
+
+
+	if (b->nofacewritten) {
+		if (!b->quiet) {
+			printf("NOT writing an .edge file.\n");
+		}
+	}
+	else {
+		if (b->edgesout) { // -e
+			m.outedges(out); // output all mesh edges. 
+		}
+		else {
+			if (b->plc || b->refine) {
+				m.outsubsegments(out); // output subsegments.
+			}
+		}
+	}
+
+	if ((b->plc || b->refine) && b->metric) { // -m
+		m.outmetrics(out);
+	}
+
+	if (!out && b->plc &&
+		((b->object == tetgenbehavior::OFF) ||
+		(b->object == tetgenbehavior::PLY) ||
+			(b->object == tetgenbehavior::STL))) {
+		m.outsmesh(b->outfilename);
+	}
+
+	if (!out && b->meditview) {
+		m.outmesh2medit(b->outfilename);
+	}
+
+
+	if (!out && b->vtkview) {
+		m.outmesh2vtk(b->outfilename);
+	}
+
+	if (b->neighout) {
+		m.outneighbors(out);
+	}
+
+	if (b->voroout) {
+		m.outvoronoi(out);
+	}
+
+
+	tv[11] = clock();
+
+	if (!b->quiet) {
+		printf("\nOutput seconds:  %g\n", ((REAL)(tv[11] - tv[10])) / cps);
+		printf("Total running seconds:  %g\n", ((REAL)(tv[11] - tv[0])) / cps);
+	}
+
+	if (b->docheck) {
+		m.checkmesh(0);
+		if (b->plc || b->refine) {
+			m.checkshells();
+			m.checksegments();
+		}
+		if (b->docheck > 1) {
+			m.checkdelaunay();
+		}
+	}
+
+	if (!b->quiet) {
+		m.statistics();
+	}
+
+	return;
 }
+
+//void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
+//                    tetgenio *addin, tetgenio *bgmin){
+//  tetgenmesh m;
+//  clock_t tv[12], ts[5]; // Timing informations (defined in time.h)
+//  REAL cps = (REAL) CLOCKS_PER_SEC;
+//
+//  tv[0] = clock();
+// 
+//  m.b = b;
+//  m.in = in;
+//  m.addin = addin;
+//
+//  if (b->metric && bgmin && (bgmin->numberofpoints > 0)) {
+//    m.bgm = new tetgenmesh(); // Create an empty background mesh.
+//    m.bgm->b = b;
+//    m.bgm->in = bgmin;
+//  }
+//
+//  m.initializepools();
+//  m.transfernodes();
+//
+//  exactinit(b->verbose, b->noexact, b->nostaticfilter,
+//            m.xmax - m.xmin, m.ymax - m.ymin, m.zmax - m.zmin);
+//
+//  tv[1] = clock();
+//
+//  if (b->refine) { // -r
+//    m.reconstructmesh();
+//  } else { // -p
+//    m.incrementaldelaunay(ts[0]);
+//  }
+//
+//  tv[2] = clock();
+//
+//  if (!b->quiet) {
+//    if (b->refine) {
+//      printf("Mesh reconstruction seconds:  %g\n", ((REAL)(tv[2]-tv[1])) / cps);
+//    } else {
+//      printf("Delaunay seconds:  %g\n", ((REAL)(tv[2]-tv[1])) / cps);
+//      if (b->verbose) {
+//        printf("  Point sorting seconds:  %g\n", ((REAL)(ts[0]-tv[1])) / cps);
+//      }
+//    }
+//  }
+//
+//  if (b->plc && !b->refine) { // -p
+//    m.meshsurface();
+//
+//    ts[0] = clock();
+//
+//    if (!b->quiet) {
+//      printf("Surface mesh seconds:  %g\n", ((REAL)(ts[0]-tv[2])) / cps);
+//    }
+//
+//    if (b->diagnose) { // -d
+//      m.detectinterfaces();
+//
+//      ts[1] = clock();
+//
+//      if (!b->quiet) {
+//        printf("Self-intersection seconds:  %g\n", ((REAL)(ts[1]-ts[0])) / cps);
+//      }
+//
+//      // Only output when self-intersecting faces exist.
+//      if (m.subfaces->items > 0l) {
+//        m.outnodes(out);
+//        m.outsubfaces(out);
+//      }
+//
+//      return;
+//    }
+//  }
+//
+//  tv[3] = clock();
+//
+//  if ((b->metric) && (m.bgm != NULL)) { // -m
+//    m.bgm->initializepools();
+//    m.bgm->transfernodes();
+//    m.bgm->reconstructmesh();
+//
+//    ts[0] = clock();
+//
+//    if (!b->quiet) {
+//      printf("Background mesh reconstruct seconds:  %g\n",
+//             ((REAL)(ts[0] - tv[3])) / cps);
+//    }
+//
+//    if (b->metric) { // -m
+//      m.interpolatemeshsize();
+//
+//      ts[1] = clock();
+//
+//      if (!b->quiet) {
+//        printf("Size interpolating seconds:  %g\n",((REAL)(ts[1]-ts[0])) / cps);
+//      }
+//    }
+//  }
+//
+//  tv[4] = clock();
+//
+//  if (b->plc && !b->refine) { // -p
+//    if (b->nobisect) { // -Y
+//      m.recoverboundary(ts[0]);
+//    } else {
+//      m.constraineddelaunay(ts[0]);
+//    }
+//
+//    ts[1] = clock();
+//
+//    if (!b->quiet) {
+//      if (b->nobisect) {
+//        printf("Boundary recovery ");
+//      } else {
+//        printf("Constrained Delaunay ");
+//      }
+//      printf("seconds:  %g\n", ((REAL)(ts[1] - tv[4])) / cps);
+//      if (b->verbose) {
+//        printf("  Segment recovery seconds:  %g\n",((REAL)(ts[0]-tv[4]))/ cps);
+//        printf("  Facet recovery seconds:  %g\n", ((REAL)(ts[1]-ts[0])) / cps);
+//      }
+//    }
+//
+//    m.carveholes();
+//
+//    ts[2] = clock();
+//
+//    if (!b->quiet) {
+//      printf("Exterior tets removal seconds:  %g\n",((REAL)(ts[2]-ts[1]))/cps);
+//    }
+//
+//    if (b->nobisect) { // -Y
+//      if (m.subvertstack->objects > 0l) {
+//        m.suppresssteinerpoints();
+//
+//        ts[3] = clock();
+//
+//        if (!b->quiet) {
+//          printf("Steiner suppression seconds:  %g\n",
+//                 ((REAL)(ts[3]-ts[2]))/cps);
+//        }
+//      }
+//    }
+//  }
+//
+//  tv[5] = clock();
+//
+//  if (b->coarsen) { // -R
+//    m.meshcoarsening();
+//  }
+//
+//  tv[6] = clock();
+//
+//  if (!b->quiet) {
+//    if (b->coarsen) {
+//      printf("Mesh coarsening seconds:  %g\n", ((REAL)(tv[6] - tv[5])) / cps);
+//    }
+//  }
+//
+//  if ((b->plc && b->nobisect) || b->coarsen) {
+//    m.recoverdelaunay();
+//  }
+//
+//  tv[7] = clock();
+//
+//  if (!b->quiet) {
+//    if ((b->plc && b->nobisect) || b->coarsen) {
+//      printf("Delaunay recovery seconds:  %g\n", ((REAL)(tv[7] - tv[6]))/cps);
+//    }
+//  }
+//
+//  if ((b->plc || b->refine) && b->insertaddpoints) { // -i
+//    if ((addin != NULL) && (addin->numberofpoints > 0)) {
+//      m.insertconstrainedpoints(addin); 
+//    }
+//  }
+//
+//  tv[8] = clock();
+//
+//  if (!b->quiet) {
+//    if ((b->plc || b->refine) && b->insertaddpoints) { // -i
+//      if ((addin != NULL) && (addin->numberofpoints > 0)) {
+//        printf("Constrained points seconds:  %g\n", ((REAL)(tv[8]-tv[7]))/cps);
+//      }
+//    }
+//  }
+//
+//  if (b->quality) {
+//    m.delaunayrefinement();    
+//  }
+//
+//  tv[9] = clock();
+//
+//  if (!b->quiet) {
+//    if (b->quality) {
+//      printf("Refinement seconds:  %g\n", ((REAL)(tv[9] - tv[8])) / cps);
+//    }
+//  }
+//
+//  if ((b->plc || b->refine) && (b->optlevel > 0)) {
+//    m.optimizemesh();
+//  }
+//
+//  tv[10] = clock();
+//
+//  if (!b->quiet) {
+//    if ((b->plc || b->refine) && (b->optlevel > 0)) {
+//      printf("Optimization seconds:  %g\n", ((REAL)(tv[10] - tv[9])) / cps);
+//    }
+//  }
+//
+//  if (!b->nojettison && ((m.dupverts > 0) || (m.unuverts > 0)
+//      || (b->refine && (in->numberofcorners == 10)))) {
+//    m.jettisonnodes();
+//  }
+//
+//  if ((b->order == 2) && !b->convex) {
+//    m.highorder();
+//  }
+//
+//  if (!b->quiet) {
+//    printf("\n");
+//  }
+//
+//  if (out != (tetgenio *) NULL) {
+//    out->firstnumber = in->firstnumber;
+//    out->mesh_dim = in->mesh_dim;
+//  }
+//
+//  if (b->nonodewritten || b->noiterationnum) {
+//    if (!b->quiet) {
+//      printf("NOT writing a .node file.\n");
+//    }
+//  } else {
+//    m.outnodes(out);
+//  }
+//
+//  if (b->noelewritten) {
+//    if (!b->quiet) {
+//      printf("NOT writing an .ele file.\n");
+//    }
+//    m.indexelements();
+//  } else {
+//    if (m.tetrahedrons->items > 0l) {
+//      m.outelements(out);
+//    }
+//  }
+//
+//  if (b->nofacewritten) {
+//    if (!b->quiet) {
+//      printf("NOT writing an .face file.\n");
+//    }
+//  } else {
+//    if (b->facesout) {
+//      if (m.tetrahedrons->items > 0l) {
+//        m.outfaces(out);  // Output all faces.
+//      }
+//    } else {
+//      if (b->plc || b->refine) {
+//        if (m.subfaces->items > 0l) {
+//          m.outsubfaces(out); // Output boundary faces.
+//        }
+//      } else {
+//        if (m.tetrahedrons->items > 0l) {
+//          m.outhullfaces(out); // Output convex hull faces.
+//        }
+//      }
+//    }
+//  }
+//
+//
+//  if (b->nofacewritten) {
+//    if (!b->quiet) {
+//      printf("NOT writing an .edge file.\n");
+//    }
+//  } else {
+//    if (b->edgesout) { // -e
+//      m.outedges(out); // output all mesh edges. 
+//    } else {
+//      if (b->plc || b->refine) {
+//        m.outsubsegments(out); // output subsegments.
+//      }
+//    }
+//  }
+//
+//  if ((b->plc || b->refine) && b->metric) { // -m
+//    m.outmetrics(out);
+//  }
+//
+//  if (!out && b->plc && 
+//      ((b->object == tetgenbehavior::OFF) ||
+//       (b->object == tetgenbehavior::PLY) ||
+//       (b->object == tetgenbehavior::STL))) {
+//    m.outsmesh(b->outfilename);
+//  }
+//
+//  if (!out && b->meditview) {
+//    m.outmesh2medit(b->outfilename); 
+//  }
+//
+//
+//  if (!out && b->vtkview) {
+//    m.outmesh2vtk(b->outfilename); 
+//  }
+//
+//  if (b->neighout) {
+//    m.outneighbors(out);
+//  }
+//
+//  if (b->voroout) {
+//    m.outvoronoi(out);
+//  }
+//
+//
+//  tv[11] = clock();
+//
+//  if (!b->quiet) {
+//    printf("\nOutput seconds:  %g\n", ((REAL)(tv[11] - tv[10])) / cps);
+//    printf("Total running seconds:  %g\n", ((REAL)(tv[11] - tv[0])) / cps);
+//  }
+//
+//  if (b->docheck) {
+//    m.checkmesh(0);
+//    if (b->plc || b->refine) {
+//      m.checkshells();
+//      m.checksegments();
+//    }
+//    if (b->docheck > 1) {
+//      m.checkdelaunay();
+//    }
+//  }
+//
+//  if (!b->quiet) {
+//    m.statistics();
+//  }
+//}
 
 #ifndef TETLIBRARY
 
@@ -31587,7 +32028,56 @@ int main(int argc, char *argv[])
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-void tetrahedralize(char *switches, tetgenio *in, tetgenio *out, 
+//void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
+//	tetgenio *addin, tetgenio *bgmin)
+//
+//#endif // not TETLIBRARY
+//
+//{
+//	tetgenbehavior b;
+//
+//#ifndef TETLIBRARY
+//
+//	tetgenio in, addin, bgmin;
+//
+//	if (!b.parse_commandline(argc, argv)) {
+//		terminatetetgen(NULL, 10);
+//	}
+//
+//	// Read input files.
+//	if (b.refine) { // -r
+//		if (!in.load_tetmesh(b.infilename, (int)b.object)) {
+//			terminatetetgen(NULL, 10);
+//		}
+//	}
+//	else { // -p
+//		if (!in.load_plc(b.infilename, (int)b.object)) {
+//			terminatetetgen(NULL, 10);
+//		}
+//	}
+//	if (b.insertaddpoints) { // -i
+//	  // Try to read a .a.node file.
+//		addin.load_node(b.addinfilename);
+//	}
+//	if (b.metric) { // -m
+//	  // Try to read a background mesh in files .b.node, .b.ele.
+//		bgmin.load_tetmesh(b.bgmeshfilename, (int)b.object);
+//	}
+//
+//	tetrahedralize(&b, &in, NULL, &addin, &bgmin);
+//
+//	return 0;
+//
+//#else // with TETLIBRARY
+//
+//	if (!b.parse_commandline(switches)) {
+//		terminatetetgen(NULL, 10);
+//	}
+//	tetrahedralize(&b, in, out, addin, bgmin);
+//
+//#endif // not TETLIBRARY
+//}
+void my_tetrahedralize(char *switches, tetgenio *in, tetgenio *out, tetgenmesh& m,
                     tetgenio *addin, tetgenio *bgmin)
 
 #endif // not TETLIBRARY
@@ -31598,7 +32088,7 @@ void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
 #ifndef TETLIBRARY
 
   tetgenio in, addin, bgmin;
-  
+  tetgenmesh m;
   if (!b.parse_commandline(argc, argv)) {
     terminatetetgen(NULL, 10);
   }
@@ -31622,7 +32112,7 @@ void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
     bgmin.load_tetmesh(b.bgmeshfilename, (int) b.object);
   }
 
-  tetrahedralize(&b, &in, NULL, &addin, &bgmin);
+  my_tetrahedralize(&b, &in, NULL, m,  &addin, &bgmin);
 
   return 0;
 
@@ -31631,8 +32121,7 @@ void tetrahedralize(char *switches, tetgenio *in, tetgenio *out,
   if (!b.parse_commandline(switches)) {
     terminatetetgen(NULL, 10);
   }
-  tetrahedralize(&b, in, out, addin, bgmin);
-
+  my_tetrahedralize(&b, in, out, m, addin, bgmin);
 #endif // not TETLIBRARY
 }
 

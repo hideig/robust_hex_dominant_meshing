@@ -29,7 +29,7 @@
 #include <vector>
 
 #include "basic_types.h"
-#include "cell_types.h"
+#include "cell_types.h""
 #include "hxt_combine_cell.h"
 
 /**

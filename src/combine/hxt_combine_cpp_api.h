@@ -25,12 +25,12 @@
 #include <vector>
 #include <map>
 
-#include <hxt_combine_cell.h>
-#include <hxt_graph.h>
-#include <hxt_api.h>
-#include <hxt_mwis.h>
-#include <algorithms.h>
-#include <tet_mesh.h>
+#include "hxt_combine_cell.h"
+//#include <hxt_graph.h>
+#include "hxt_api.h"
+//#include <hxt_mwis.h>
+#include "algorithms.h"
+#include "tet_mesh.h"
 
 /**
 * \file tet_mesh.h C++ API of the Combine module
@@ -54,7 +54,6 @@ class HXTCombineCellStore {
 public:
   enum CELLTYPE {HEX, PRISM, PYRAMID, TET};
   static const unsigned int nbCellTypes = 4;
-
   HXTCombineCellStore(const TetMeshForCombining& mesh):
     mesh_(mesh)
   {
@@ -62,7 +61,7 @@ public:
     selectedCells_.resize(nbCellTypes);
   }
 
-double computeHexesVolume();
+  double computeHexesVolume();
 
   void computeHexes(double minQuality);
   void computePrisms(double minQuality);
@@ -70,10 +69,10 @@ double computeHexesVolume();
 
   void selectCellsGreedy(std::array<bool,nbCellTypes> cellType);
   void selectCellsGreedyLocal(std::array<bool,nbCellTypes> cellType);
-  void selectCellsGraph (std::array<bool,nbCellTypes> cellType,  const TetMeshWrapper& tets);
+  //void selectCellsGraph (std::array<bool,nbCellTypes> cellType,  const TetMeshWrapper& tets);
   
   //void computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType);
-    void computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType,const TetMeshWrapper& tets);
+//    void computeIncompatibilityGraph(HXTGraph& graph, std::array<bool, nbCellTypes> cellType,const TetMeshWrapper& tets);
 
   unsigned int nbSelectedHexes() const;
   unsigned int nbSelectedPrisms() const;
@@ -93,8 +92,9 @@ public:
   std::vector<bool>& selectedPyramids() { return selectedCells_[PYRAMID]; }
   std::vector<bool>& selectedTets() { return selectedCells_[TET]; }
 
-private:
+public:
   const TetMeshForCombining& mesh_;
+public:
   std::vector<std::vector<HXTCombineCell>> cells_;
   std::vector<std::vector<bool>> selectedCells_;
 };
@@ -120,12 +120,11 @@ double cellQualityAPI(const TetMeshWrapper& tets, const HXTCombineCell& cell);
 
 void countAndCompareCellsIMR(std::ofstream& out, TetMeshForCombining& tetMesh, const vector<double>& minQualities);
 
-void incompatibilityGraph(
-  const TetMeshWrapper& mesh, const std::vector<HXTCombineCell>& cells, HXTGraph& graph);
+//void incompatibilityGraph(
+//  const TetMeshWrapper& mesh, const std::vector<HXTCombineCell>& cells, HXTGraph& graph);
 
 
 /**
- * 通过cell顶点规范化的顺序鉴定是否cell唯一
 * \brief Returns the \param indices of unique instance of HXTCandidate cells
 * \details Duplicates are detected using a normalized order on the cells vertices.
 * The output size of indices gives the number of different cells in the \param cells vector.

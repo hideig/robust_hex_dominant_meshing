@@ -19,7 +19,7 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <hxt_combine_cpp_api.h>
+#include "hxt_combine_cpp_api.h"
 
 #include <cassert>
 #include <condition_variable>
@@ -30,14 +30,14 @@
 #include <thread>
 #include <vector>
 
-#include <algorithms.h>
-#include <candidate_cell.h>
-#include <hxt_mwis.h>
+#include "algorithms.h"
+#include "candidate_cell.h"
+//#include <hxt_mwis.h>
 
-#include <cell_types.h>
-#include <incompatibility_graph.h>
+#include "cell_types.h"
+#include "incompatibility_graph.h"
 
-#include <hxt_omp.h>
+#include "hxt_omp.h"
 
 
 /**
@@ -181,70 +181,70 @@ private:
 
 namespace HXTCombine {
 
-void incompatibilityGraph(const TetMeshWrapper& tets, const std::vector<HXTCombineCell>& cells, HXTGraph& graph)
-{
-  if (cells.empty()) return;
-
-  std::vector<VertexToCell> vertexToCell = fillVertexToCell(tets, cells);
-  std::size_t numCells = cells.size();
-  std::sort(vertexToCell.begin(), vertexToCell.end());
-
-  HXTIndex **adjacencyList;
-  if (hxtMalloc((void**)&adjacencyList, numCells*sizeof(*adjacencyList)) < 0) {
-    throw std::bad_alloc();
-  }
-
-  HXTIndex *degrees;
-  if (hxtMalloc((void**)&degrees, numCells*sizeof(*degrees)) < 0) {
-    hxtFree((void*)&adjacencyList);
-    throw std::bad_alloc();
-  }
-
-  HXTIndex *capacities;
-  if (hxtMalloc((void**)&capacities, numCells*sizeof(*capacities)) < 0) {
-    hxtFree((void*)&adjacencyList);
-    hxtFree((void*)&degrees);
-    throw std::bad_alloc();
-  }
-
-  for (HXTIndex i = 0; i < numCells; ++i) {
-    degrees[i] = 0;
-    capacities[i] = 16;
-    if (hxtMalloc((void*)&adjacencyList[i],
-                  capacities[i]*sizeof(*adjacencyList[i])) < 0) {
-      for (HXTIndex j = 0; j < i; j++)
-        hxtFree((void*)&adjacencyList[i]);
-      hxtFree((void*)&adjacencyList);
-      hxtFree((void*)&degrees);
-      throw std::bad_alloc();
-    }
-  }
-
-  addToGraph(adjacencyList, degrees, capacities,
-             [&](IncompatibilityAdder &adder, int i, int n) {
-               IncompatibilityDetector(adder, vertexToCell, cells, i, n)();
-             });
-
-  // Sort what we gathered and remove duplicatas.
-  // Is this efficient?
-  #pragma omp parallel for
-  for (int i = 0; i < (int)numCells; ++i) {
-    std::sort(adjacencyList[i], adjacencyList[i] + degrees[i]);
-    degrees[i] = std::unique(adjacencyList[i], adjacencyList[i] + degrees[i]) -
-      adjacencyList[i];
-  }
-
-  hxtFree((void*)&capacities);
-
-  if (hxtGraphCreate(&graph, numCells, adjacencyList, degrees) < 0)
-    throw std::bad_alloc();
-
-  for (HXTIndex i = 0; i < numCells; ++i) {
-    hxtFree((void*)&adjacencyList[i]);
-  }
-  hxtFree((void*)&adjacencyList);
-  hxtFree((void*)&degrees);
-  hxtFree((void*)&capacities);
-}
+//void incompatibilityGraph(const TetMeshWrapper& tets, const std::vector<HXTCombineCell>& cells, HXTGraph& graph)
+//{
+//  if (cells.empty()) return;
+//
+//  std::vector<VertexToCell> vertexToCell = fillVertexToCell(tets, cells);
+//  std::size_t numCells = cells.size();
+//  std::sort(vertexToCell.begin(), vertexToCell.end());
+//
+//  HXTIndex **adjacencyList;
+//  if (hxtMalloc((void**)&adjacencyList, numCells*sizeof(*adjacencyList)) < 0) {
+//    throw std::bad_alloc();
+//  }
+//
+//  HXTIndex *degrees;
+//  if (hxtMalloc((void**)&degrees, numCells*sizeof(*degrees)) < 0) {
+//    hxtFree((void*)&adjacencyList);
+//    throw std::bad_alloc();
+//  }
+//
+//  HXTIndex *capacities;
+//  if (hxtMalloc((void**)&capacities, numCells*sizeof(*capacities)) < 0) {
+//    hxtFree((void*)&adjacencyList);
+//    hxtFree((void*)&degrees);
+//    throw std::bad_alloc();
+//  }
+//
+//  for (HXTIndex i = 0; i < numCells; ++i) {
+//    degrees[i] = 0;
+//    capacities[i] = 16;
+//    if (hxtMalloc((void*)&adjacencyList[i],
+//                  capacities[i]*sizeof(*adjacencyList[i])) < 0) {
+//      for (HXTIndex j = 0; j < i; j++)
+//        hxtFree((void*)&adjacencyList[i]);
+//      hxtFree((void*)&adjacencyList);
+//      hxtFree((void*)&degrees);
+//      throw std::bad_alloc();
+//    }
+//  }
+//
+//  addToGraph(adjacencyList, degrees, capacities,
+//             [&](IncompatibilityAdder &adder, int i, int n) {
+//               IncompatibilityDetector(adder, vertexToCell, cells, i, n)();
+//             });
+//
+//  // Sort what we gathered and remove duplicatas.
+//  // Is this efficient?
+//  #pragma omp parallel for
+//  for (int i = 0; i < (int)numCells; ++i) {
+//    std::sort(adjacencyList[i], adjacencyList[i] + degrees[i]);
+//    degrees[i] = std::unique(adjacencyList[i], adjacencyList[i] + degrees[i]) -
+//      adjacencyList[i];
+//  }
+//
+//  hxtFree((void*)&capacities);
+//
+//  if (hxtGraphCreate(&graph, numCells, adjacencyList, degrees) < 0)
+//    throw std::bad_alloc();
+//
+//  for (HXTIndex i = 0; i < numCells; ++i) {
+//    hxtFree((void*)&adjacencyList[i]);
+//  }
+//  hxtFree((void*)&adjacencyList);
+//  hxtFree((void*)&degrees);
+//  hxtFree((void*)&capacities);
+//}
 
 } // namespace

@@ -19,7 +19,7 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-#include <exact_cell_evaluation.h>
+#include "exact_cell_evaluation.h"
 #include "expansion.h"
 
 #include <algorithm>
@@ -50,7 +50,7 @@ double orient3dInexact(vec3 pa, vec3 pb, vec3 pc, vec3 pd, double &errbound) {
   double adxcdy = adx * cdy;
 
   double adxbdy = adx * bdy;
-  double bdxady = bdx * ady;double orient3dd
+  double bdxady = bdx * ady;
 
   double det = adz * (bdxcdy - cdxbdy)
              + bdz * (cdxady - adxcdy)

@@ -186,14 +186,14 @@ inline bindex quadFacetDiagonal(const HXTCombineCell& cell, unsigned int d)
 }
 
 inline bool isEdge(const HXTCombineCell& cell, const bindex& edge)  {
-  if      (cell.isHex())     return findCellEdge<Hex>    (cell, edge) != NO_ID;
+  if      (cell.isHex())     return findCellEdge<Hexa>    (cell, edge) != NO_ID;
   else if (cell.isPrism())   return findCellEdge<Prism>  (cell, edge) != NO_ID;
   else if (cell.isPyramid()) return findCellEdge<Pyramid>(cell, edge) != NO_ID;
   else return false;
 }
 
 inline bool isQuadFacet(const HXTCombineCell& cell, const quadindex& facet) {
-  if      (cell.isHex())     return findCellFacet<Hex>    (cell, facet) != NO_ID;
+  if      (cell.isHex())     return findCellFacet<Hexa>    (cell, facet) != NO_ID;
   else if (cell.isPrism())   return findCellFacet<Prism>  (cell, facet) != NO_ID;
   else if (cell.isPyramid()) return findCellFacet<Pyramid>(cell, facet) != NO_ID;
   else return false;

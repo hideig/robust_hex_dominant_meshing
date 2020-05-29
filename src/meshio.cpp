@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "timer.h"
 #include <iomanip>
-#include "candidate_cell.h"
+#include "Combine/candidate_cell.h"
 template <typename ParseHeader, typename ParseLine>
 void loadTextFile(const std::string &filename, ParseHeader parseHeader, ParseLine parseLine) {
     std::ifstream is(filename);
@@ -193,6 +193,46 @@ void loadTriMesh(const std::string &filename, MatrixXf &V, MatrixXu &F) {
     timer.endStage("V=" + std::to_string(V.cols()) + ", F = " + std::to_string(F.cols()));
 }
 void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, MatrixXu &T) {
+	struct obj_vertex {
+		uint32_t p = (uint32_t)-1;
+		uint32_t n = (uint32_t)-1;
+		uint32_t uv = (uint32_t)-1;
+
+		inline obj_vertex() {}
+
+		inline obj_vertex(const std::string &string) {
+			std::vector<std::string> tokens = str_tokenize(string, '/', true);
+
+			if (tokens.size() < 1 || tokens.size() > 3)
+				throw std::runtime_error("Invalid vertex data: \"" + string + "\"");
+
+			p = str_to_uint32_t(tokens[0]);
+
+#if 0
+			if (tokens.size() >= 2 && !tokens[1].empty())
+				uv = str_to_uint32_t(tokens[1]);
+
+			if (tokens.size() >= 3 && !tokens[2].empty())
+				n = str_to_uint32_t(tokens[2]);
+#endif
+		}
+
+		inline bool operator==(const obj_vertex &v) const {
+			return v.p == p && v.n == n && v.uv == uv;
+		}
+	};
+
+	/// Hash function for obj_vertex
+	struct obj_vertexHash : std::unary_function<obj_vertex, size_t> {
+		std::size_t operator()(const obj_vertex &v) const {
+			size_t hash = std::hash<uint32_t>()(v.p);
+			hash = hash * 37 + std::hash<uint32_t>()(v.uv);
+			hash = hash * 37 + std::hash<uint32_t>()(v.n);
+			return hash;
+		}
+	};
+	typedef std::unordered_map<obj_vertex, uint32_t, obj_vertexHash> VertexMap;
+
 	uint32_t vertexCount, faceCount, tetCount, dimension, nodesPerTet, boundaryInfo;
 	Timer<> timer;
 	timer.beginStage("Loading tetrahedral mesh \"" + filename );
@@ -205,6 +245,11 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 
 	char buffer[256];
 	if (!fgets(buffer, sizeof(buffer), fp)) { fclose(fp); return; }
+
+	std::vector<Vector3f> positions;
+	std::vector<uint32_t>   indices;
+	std::vector<obj_vertex> vertices;
+	VertexMap vertexMap;
 
 	char str[256];
 	int format;
@@ -223,53 +268,153 @@ void myLoadTetMesh(const std::string &filename, MatrixXf &V, MatrixXu &F, Matrix
 				int nbv;
 				sscanf(buffer, "%d", &nbv);
 				std::cout << nbv << " vertices  ";
-				V.setZero();
-				V.resize(3, nbv);
+				//V.setZero();
+				//V.resize(3, nbv);
 				for (int i = 0; i < nbv; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
 					int index;
 					double x, y, z;
 					sscanf(buffer, "%lf %lf %lf %d", &x, &y, &z, &index);
-					V.col(index-1) << x, y, z;
+					//V.col(i) << x, y, z;
+					Vector3f p(x, y, z);
+					//sscanf(buffer, "%lf %lf %lf %d", &p.x(), &p.y(), &p.z(), &index);
+
+					positions.push_back(p);
 				}
 			}else if (!strcmp(str, "Triangles")) {
 				if (!fgets(buffer, sizeof(buffer), fp)) break;
 				int nbf;
 				sscanf(buffer, "%d", &nbf);
 				std::cout << nbf << " triangles  ";
-				F.setZero();
-				F.resize(3, nbf);
+				//F.setZero();
+				//F.resize(3, nbf);
 				for (int i = 0; i < nbf; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
-					int n[3], cl;
-					sscanf(buffer, "%d %d %d %d", &n[0], &n[1], &n[2], &cl);
-					F.col(actualFaceCount++) << n[0], n[1], n[2];
+					//int n[3], cl;
+					int cl;
+					int v1, v2, v3, v4;
+					sscanf(buffer, "%d %d %d %d", &v1, &v2, &v3, &v4);
+					
+					obj_vertex tri[6];
+					int nVertices = 3;
+					tri[0] = obj_vertex(std::to_string(v1));
+					tri[1] = obj_vertex(std::to_string(v2));
+					tri[2] = obj_vertex(std::to_string(v3));
+
+					//if (!std::to_string(v4).empty()) {
+					//	/* This is a quad, split into two triangles */
+					//	tri[3] = obj_vertex(std::to_string(v4));
+					//	tri[4] = tri[0];
+					//	tri[5] = tri[2];
+					//	nVertices = 6;
+					//}
+
+					/* Convert to an indexed vertex list */
+					for (int i = 0; i < nVertices; ++i) {
+						const obj_vertex &v = tri[i];
+						VertexMap::const_iterator it = vertexMap.find(v);
+						if (it == vertexMap.end()) {
+							vertexMap[v] = (uint32_t)vertices.size();
+							indices.push_back((uint32_t)vertices.size());
+							vertices.push_back(v);
+						} else {
+							indices.push_back(it->second);
+						}
+					}
+					//F.col(actualFaceCount++) << n[0], n[1], n[2];
 				}
 			}else if (!strcmp(str, "Tetrahedra")) {
+				cout << vertices[0].p << endl;
 				if (!fgets(buffer, sizeof(buffer), fp)) break;
 				int nbt;
 				sscanf(buffer, "%d", &nbt);
 				std::cout << nbt << " tetrahedra  ";
 				T.setZero();
 				T.resize(4, nbt);
+
+				//cout << positions.size() << endl;
+				//cout << positions << endl;
 				for (int i = 0; i < nbt; i++) {
 					if (!fgets(buffer, sizeof(buffer), fp)) break;
 					int n[4], cl;
-					sscanf(buffer, "%d %d %d %d %d", &n[0], &n[1], &n[2], &n[3], &cl);
-					T.col(actualTetCount++) << n[0], n[1], n[2], n[3];
+ 					sscanf(buffer, "%d %d %d %d %d", &n[0], &n[1], &n[2], &n[3], &cl);
+
+					/*obj_vertex v(std::to_string(9));
+					VertexMap::const_iterator it = vertexMap.find(v);
+					cout << it->second << endl;
+					cout << it->first.p << endl;
+
+					obj_vertex v2(std::to_string(20));
+					it = vertexMap.find(v2);
+					cout << it->second << endl;
+					cout << it->first.p << endl;*/
+
+					obj_vertex tet[4];
+					tet[0] = obj_vertex(std::to_string(n[0]));
+					tet[1] = obj_vertex(std::to_string(n[1]));
+					tet[2] = obj_vertex(std::to_string(n[2]));
+					tet[3] = obj_vertex(std::to_string(n[3]));
+
+					int ve[3];
+					for (int j = 0; j < 4; j++) {
+						const obj_vertex &v = tet[j];
+						VertexMap::const_iterator it = vertexMap.find(v);
+						if (it == vertexMap.end()) {
+							vertexMap[v] = (uint32_t)vertices.size();
+							//indices.push_back((uint32_t)vertices.size());
+							T(j, i) = (uint32_t)vertices.size();
+							vertices.push_back(v);
+						} else {
+							//indices.push_back(it->second);
+							T(j, i) = it->second;
+						}
+						//ve[i] = it->second;
+					}
+					/*VertexMap::const_iterator it = vertexMap.find(v0);
+					n[0] = it->second;
+					it = vertexMap.find(v1);
+					n[1] = it->second;
+					it = vertexMap.find(v2);
+					n[2] = it->second;
+					it = vertexMap.find(v3);
+					n[3] = it->second;*/
+
+					//T.col(actualTetCount++) << ve[0], ve[1], ve[2], ve[3];
 				}
 			}
 		}
 	}
+
+	//printf("Check V: \nCol of V: %d.\n", V.cols());
+	//for (int i = 0; i < V.cols(); i++) {
+	//	printf("Point %d: %lf, %lf, %lf \n", i + 1, V(0, i), V(1, i), V(2, i));
+	//}
+	//printf("Check F: \nCol of F: %d.\n", F.cols());
+	//for (int i = 0; i < F.cols(); i++) {
+	//	printf("Facet %d: %d, %d, %d \n", i + 1, F(0, i), F(1, i), F(2, i));
+	//}
+	//printf("Check T: \nCol of T: %d.\n", T.cols());
+	//for (int i = 0; i < T.cols(); i++) {
+	//	printf("Tetrahedra %d: %d, %d, %d, %d \n", i + 1, T(0, i), T(1, i), T(2, i), T(3, i));
+	//}
+
+	//cout << T << endl;
+
 	fclose(fp);
-	F.row(0).swap(F.row(1));
+	/*F.row(0).swap(F.row(1));
 	F.conservativeResize(3, actualFaceCount);
 
 	timer.endStage("V=" + std::to_string(V.cols()) + ", F = " +
 		std::to_string(F.cols()) + ", T = " +
-		std::to_string(T.cols()));
-}
-void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
+		std::to_string(T.cols()));*/
+
+	F.resize(3, indices.size() / 3);
+	memcpy(F.data(), indices.data(), sizeof(uint32_t)*indices.size());
+	V.resize(3, vertices.size());
+	for (uint32_t i = 0; i < vertices.size(); ++i)
+		V.col(i) = positions.at(vertices[i].p - 1);
+
+}void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
 	/// Vertex indices used by the OBJ format
 	struct obj_vertex {
 		uint32_t p = (uint32_t)-1;
@@ -853,17 +998,24 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 	f.close();
 }
 
-void write_tet_veitices_set(MatrixXf &V, MatrixXf &insert_V, char * path)
+void write_tet_veitices_set2(MatrixXf &V, char * path)
 {
 	std::fstream f(path, std::ios::out);
-	//f << V.cols() << "  " << 3 << "	" << 0 << "	 " << 0 << std::endl;
-	f << V.cols()+insert_V.cols() << "  "<< 3 << "	" << 0 << "	 " << 0 << std::endl;
+	//f << V.cols() << "  "<< 3 << "	" << 0 << "	 " << 0 << std::endl;
 	int index = 0;
 	for (int i = 0; i < V.cols(); i++)
-		f << index++ << "  " <<  V(0, i) << "  " << V(1, i) << "  " << V(2, i) << std::endl;
-	for (int i = 0; i < insert_V.cols(); i++)
-		f << index++ << "  " << insert_V(0, i) << "  " << insert_V(1, i) << "  " << insert_V(2, i) << std::endl;
-
+		f << "Point(" << i+1 << ") = {" << V(0, i) << ", " << V(1, i) << ", " << V(2, i) << "};" << endl;
+		//f << index++ << "  " <<  V(0, i) << "  " << V(1, i) << "  " << V(2, i) << std::endl;
+	f.close();
+}
+void write_tet_veitices_set(MatrixXf &V, char * path)
+{
+	std::fstream f(path, std::ios::out);
+	f << V.cols() << "  "<< 3 << "	" << 0 << "	 " << 0 << std::endl;
+	int index = 0;
+	for (int i = 0; i < V.cols(); i++)
+		//f << "Point(" << i << ") = {" << V(0, i) << ", " << V(1, i) << ", " << V(2, i) << "};" << endl;
+	f << index++ << "  " <<  V(0, i) << "  " << V(1, i) << "  " << V(2, i) << std::endl;
 	f.close();
 }
 

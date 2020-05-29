@@ -1,0 +1,17 @@
+<map id="G" name="G">
+<area shape="rect" href="$classOpenMesh_1_1BaseHandle.html" title="Base class for all handle types." alt="" coords="5,272,168,301"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="OpenMesh::BasePropHandleT\&lt; typename Mesh::Point \&gt;" alt="" coords="216,59,568,88"/>
+<area shape="rect" href="$structOpenMesh_1_1BasePropHandleT.html" title="Base property handle." alt="" coords="277,139,507,168"/>
+<area shape="rect" href="$structOpenMesh_1_1EdgeHandle.html" title="Handle for a edge entity." alt="" coords="311,192,473,221"/>
+<area shape="rect" href="$structOpenMesh_1_1FaceHandle.html" title="Handle for a face entity." alt="" coords="312,245,472,275"/>
+<area shape="rect" href="$structOpenMesh_1_1HalfedgeHandle.html" title="Handle for a halfedge entity." alt="" coords="300,299,484,328"/>
+<area shape="rect" href="$structOpenMesh_1_1Subdivider_1_1Adaptive_1_1RuleHandleT.html" title="Handle template for adaptive composite subdividion rules." alt="" coords="229,352,555,381"/>
+<area shape="rect" href="$structOpenMesh_1_1VDPM_1_1VHierarchyNodeHandle.html" title="Handle for vertex hierarchy nodes." alt="" coords="256,405,528,435"/>
+<area shape="rect" href="$structOpenMesh_1_1VertexHandle.html" title="Handle for a vertex entity." alt="" coords="308,459,476,488"/>
+<area shape="rect" href="$structOpenMesh_1_1FPropHandleT.html" title="OpenMesh::FPropHandleT\&lt; typename Mesh::Point \&gt;" alt="" coords="617,5,945,35"/>
+<area shape="rect" href="$structOpenMesh_1_1EPropHandleT.html" title="Handle representing an edge property." alt="" coords="677,59,885,88"/>
+<area shape="rect" href="$structOpenMesh_1_1FPropHandleT.html" title="Handle representing a face property." alt="" coords="677,112,885,141"/>
+<area shape="rect" href="$structOpenMesh_1_1HPropHandleT.html" title="Handle representing a halfedge property." alt="" coords="677,165,885,195"/>
+<area shape="rect" href="$structOpenMesh_1_1MPropHandleT.html" title="Handle representing a mesh property." alt="" coords="676,219,887,248"/>
+<area shape="rect" href="$structOpenMesh_1_1VPropHandleT.html" title="Handle representing a vertex property." alt="" coords="677,272,885,301"/>
+</map>

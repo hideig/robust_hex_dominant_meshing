@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-#include <hxt_api.h>
+#include "hxt_api.h"
 
 /**
 * \file hxt_combine_c_api.h C interface of the Combine module
@@ -57,7 +57,7 @@ HXTStatus HXTCombineCellVectorCellBoundaryTets(
 *
 * Algorithms to combine tetrahedra in hexahedra and prisms described in the article :
 * Pellerin J, Johnen A, Remacle J-F. 
-* Identifying combinations of tetrahedra into hexahedra: a vertex based strategy. Procedia Engineering. 2017;203:2–13.
+* Identifying combinations of tetrahedra into hexahedra: a vertex based strategy. Procedia Engineering. 2017;203:2?3.
 * Proceedings of the 26th International Meshing Roundtable, Barcelona, Spain  [arXiv:1705.02451]
 */
 

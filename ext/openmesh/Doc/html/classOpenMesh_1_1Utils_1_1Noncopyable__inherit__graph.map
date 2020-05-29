@@ -1,0 +1,13 @@
+<map id="G" name="G">
+<area shape="rect" href="$classOpenMesh_1_1Decimater_1_1ModHandleT.html" title="Handle for mesh decimation modules." alt="" coords="323,5,621,35"/>
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1SmootherT.html" title="Base class for smoothing algorithms." alt="" coords="335,59,609,88"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1SubdividerT.html" title="Abstract base class for uniform subdivision algorithms." alt="" coords="256,112,688,141"/>
+<area shape="rect" href="$classOpenMesh_1_1Utils_1_1TestingFramework.html" title="Helper class for test programms." alt="" coords="356,165,588,195"/>
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1LaplaceSmootherT.html" title="Laplacian Smoothing." alt="" coords="792,32,1112,61"/>
+<area shape="rect" href="$classOpenMesh_1_1Smoother_1_1JacobiLaplaceSmootherT.html" title="Laplacian Smoothing." alt="" coords="1268,32,1628,61"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1CompositeT.html" title="This class provides the composite subdivision rules for the uniform case." alt="" coords="736,85,1168,115"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1LoopT.html" title="Uniform Loop subdivision algorithm." alt="" coords="753,139,1151,168"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1Sqrt3T.html" title="Uniform Sqrt3 subdivision algorithm" alt="" coords="752,192,1152,221"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1CompositeLoopT.html" title="Uniform composite Loop subdivision algorithm." alt="" coords="1219,85,1677,115"/>
+<area shape="rect" href="$classOpenMesh_1_1Subdivider_1_1Uniform_1_1CompositeSqrt3T.html" title="Uniform composite sqrt(3) subdivision algorithm." alt="" coords="1216,139,1680,168"/>
+</map>

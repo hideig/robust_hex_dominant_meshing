@@ -13,8 +13,8 @@
 #include <queue>
 #include "global_types.h"
 #include <set>
-#include "tet_mesh.h"
-#include "kd_tree.hpp"
+#include "Combine/tet_mesh.h"
+#include "Scaffold/kd_tree.hpp"
 
 using nanogui::Serializer;
 using namespace std;
@@ -112,21 +112,17 @@ public:
 
 	bool meshExtraction3D();
 	void showPoints(const vector<vector<V3d>>& points);
-	bool isInTet(const vector<V3d>& tet_4V, const V3d& point);
 	void construct_Es_Fs_Polyhedral();
 	void orient_hybrid_mesh(MatrixXf &HV, vector<vector<uint32_t>> &HF, vector<vector<uint32_t>> &HP, vector<vector<bool>> &HPF_flag);
 	void swap_data3D();
 
 		bool edge_tagging3D(vector<uint32_t> &ledges);
 		void find_otheredges(vector<tuple_E> &otheredges, vector<tuple_E> &persistentedges,vector<Vector3f>& insert_points_tmp);
-		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, 
-			vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes, vector<Vector3f>& insert_points_tmp);
+		bool my_edge_tagging3D(vector<uint32_t> &ledges, vector<tuple_E> &otheredges, vector<tuple_E> &persistentedges, MultiResolutionHierarchy& mRes, vector<Vector3f>& insert_points_tmp);
 		void tagging_collapseTet();
 		bool split_long_edge3D(vector<uint32_t> &ledges);
 		bool split_otheredges(vector<tuple_E> &otheredge, int insert_size);
-		bool split_otheredge(tuple_E &otheredge, int size);
 		template<typename PointV> vector<int> checkLocalArea(const PointV& gn, KD3d& old_tree, double mScale);
-		void insert_new_vertex(const KD3d& old_vertices, const std::vector<V3d>& candidate_vertices,const V3d& new_vertex);
 		bool split_face3D(bool red_edge);
 		bool split_polyhedral3D();
 		void candidate_loops(vector<uint32_t> &fs, vector<vector<uint32_t>> &nfes, vector<vector<uint32_t>> &nfvs, vector<pair<double, uint32_t>> &fs_rank);
@@ -135,6 +131,11 @@ public:
 		Float compute_cost_face3D(vector<uint32_t> &vs, uint32_t rv, bool single);
 		Float compute_cost_edge3D(uint32_t v0, uint32_t v1);
 		void tagging_singularities_T_nodes(MatrixXf &V_tagging, vector<tuple_E> &E_tagging, vector<vector<uint32_t>> &F_tagging);
+
+
+		int MultiResolutionHierarchy::edge_contract(int &eid, int &point_new);
+		int MultiResolutionHierarchy::erase_tetrahedron(int &handle);
+
 
 	void composit_edges_colors(MatrixXf &Result_Vs, std::vector<tuple_E> &Es_to_render, MatrixXf &Result_edges);
 
@@ -156,14 +157,12 @@ public:
 	//Float scale() const { return ratio_scale; }
 	Float scale() const { return tet_elen; }
 	//void setScale(Float scale) { 
-	//    //cout << "mmmmmmmmmmmmmmmm" << endl;
 	//	ratio_scale = scale; 
 	//	mScale = diagonalLen * scale; 
 	//	mInvScale = 1.f / mScale;
 	//	tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
 	//}
 	void setScale(Float scale) { // 设置目标网格边长
-		//cout << "mmmmmmmmmmmmmmmm" << endl;
 		ratio_scale = scale; 
 		tet_elen = scale;
 		mScale = scale;
@@ -178,13 +177,28 @@ public:
     std::vector<MatrixXf> mN;
     std::vector<MatrixXf> mQ;
     std::vector<MatrixXf> mO;
-	std::vector<MatrixXf> my_mO;
     std::vector<MatrixXf> mC;
     std::vector<SSMatrix> mL;
     std::vector<SSMatrix> mP;
     MatrixXu mF;
-	MatrixXu allF;
     MatrixXu mT;
+
+
+
+
+
+	MatrixXu allF;
+	std::vector<MatrixXf> my_mO;
+
+
+	tetgenio tet_mesh;
+	tetgenmesh rec_tetgenmesh;
+	vector<tetgenmesh::point> tetmesh_point;
+
+	vector<tetgenmesh::triface> tetEdges;
+	unordered_map<string, int> tetEdgesPair;
+	vector<int> edgeId_to_remove;
+
 
 	// 插入的位置场
 	unordered_map<int, vector<pair<Vector3f, int>>> pe_insert_points;
@@ -192,7 +206,14 @@ public:
 
 	MatrixXf mVv_tag;
 	std::vector<tuple_E> mpEes;
-	std::vector<tuple_E> mpEess;
+	std::vector<tuple_E> tet_edgelist;
+	std::vector<vector<int>> per_edge_tetlist;  // 每条边所属的体
+	std::vector<vector<int>> per_point_tetlist;  // 每个点所属的体
+	std::vector<vector<int>> per_face_tetlist;  // 每个面所属的体
+	std::vector<vector<int>> per_face_pointlist;  // 每个面所有的点
+	std::vector<vector<int>> per_tet_edgelist;// 每个体所有的边
+	std::vector<vector<int>> per_tet_facelist; // 每个体所有的面
+	std::vector<vector<int>> per_tet_neighbor_tetlist;// 每个体所有的邻体
 	std::vector<std::vector<uint32_t>> Ff_tag;
 	std::vector<std::vector<uint32_t>> nFes;
 	std::vector<tuple_E> nEs;
@@ -200,8 +221,15 @@ public:
 	std::vector<std::vector<uint32_t>> nV_nes;
 	std::vector<tuple_E> otheredges, persistentedges;
 	
+	std::vector<tuple_E> tet_edges;
+
+
 	vector<V3d> tetPoints;
+
 	vector<V3d> yuanPoints;
+	
+
+
 	vector<vector<uint32_t>> vnfs;
 	Float quadricW = 1;
 
@@ -234,6 +262,7 @@ public:
 	std::vector<tuple_E> Es_reddash_left;
 
 	MatrixXf mV_tag;
+	MatrixXf mV_tag_tet;
 	std::vector<std::vector<uint32_t>> FEs_tag, F_tag, P_tag;
 	std::vector<bool> Hex_flag;
 	std::vector<std::vector<bool>> PF_flag;
