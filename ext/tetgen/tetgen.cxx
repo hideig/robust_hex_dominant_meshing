@@ -18554,7 +18554,8 @@ int tetgenmesh::checkflipeligibility(int fliptype, point pa, point pb,
 // tets in the edge star.                                                    //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
+#include <iostream>
+using namespace std;
 int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
 {
   triface *abtets, spintet;
@@ -18578,8 +18579,8 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
       return 0;
     }
   }
-
-  // Count the number of tets at edge [a,b].
+  std::cout << "_1___________" << std::endl;
+   // Count the number of tets at edge [a,b].
   n = 0;
   spintet = *flipedge;
   while (1) {
@@ -18587,11 +18588,12 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     fnextself(spintet);
     if (spintet.tet == flipedge->tet) break;
   }
+  std::cout << "_2___________" << std::endl;
   if (n < 3) {
     // It is only possible when the mesh contains inverted tetrahedra.  
     terminatetetgen(this, 2); // Report a bug
   }
-
+  std::cout << "_2___________" << std::endl;
   if ((b->flipstarsize > 0) && (n > b->flipstarsize)) {
     // The star size exceeds the limit.
     return 0; // Do not flip it.
@@ -18610,7 +18612,7 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     if (spintet.tet == flipedge->tet) break;
   }
 
-
+  std::cout << "_3___________" << std::endl;
   // Try to flip the edge (level = 0, edgepivot = 0).
   nn = flipnm(abtets, n, 0, 0, fc);
 
@@ -18623,7 +18625,7 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     // Restore the input edge (needed by Lawson's flip).
     *flipedge = abtets[0];
   }
-
+  std::cout << "_4___________" << std::endl;
   // Release the temporary allocated spaces.
   // NOTE: fc->unflip must be 0.
   int bakunflip = fc->unflip;
@@ -18728,7 +18730,6 @@ int tetgenmesh::recoveredgebyflips(point startpt, point endpt, face *sedge,
 
   // The mainloop of the edge reocvery.
   while (1) { // Loop I
-
     // Search the edge from 'startpt'.
     point2tetorg(startpt, *searchtet);
     dir = finddirection(searchtet, endpt);
@@ -18745,7 +18746,6 @@ int tetgenmesh::recoveredgebyflips(point startpt, point endpt, face *sedge,
     }
 
     // The edge is missing. 
-
     // Try to remove the first intersecting face/edge.
     enextesymself(*searchtet); // Go to the opposite face.
     if (dir == ACROSSFACE) {
@@ -18779,7 +18779,6 @@ int tetgenmesh::recoveredgebyflips(point startpt, point endpt, face *sedge,
     }
 
     // The edge is missing.
-
     if (fullsearch) {
       // Try to flip one of the faces/edges which intersects the edge.
       triface neightet, spintet;

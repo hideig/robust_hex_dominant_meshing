@@ -1475,8 +1475,10 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 	cout << "vvvectorId[2].size(): " << vvvectorId[2].size() << endl;
 
 	showPoints(points_show);
-	//vector<tetgenmesh::triface*> edge_to_collapse;
-	for(auto a: vvvectorId[2]){/*
+	int i = 0;
+	tetgenmesh::flipconstraints fc;
+	for(auto a: vvvectorId[2]){
+		/*				
 		if (edgeVV.find(string(to_string(a[0]) + "_" + to_string(a[1]))) != edgeVV.end()
 			|| edgeVV.find(string(to_string(a[1]) + "_" + to_string(a[0]))) != edgeVV.end())*/ {
 			//sameEdge++;
@@ -1484,31 +1486,25 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 			auto find_it = tetEdgesPair.find(s1);
 			if (find_it != tetEdgesPair.end()) {
 				edgeId_to_remove.push_back(find_it->second);
-				rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), NULL);
+				if (i == 0) {
+					int remove_result = rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), &fc);
+					cout << "remove_result: " << remove_result << endl;
+				}
 				continue;
 			}
 			else {
 				string s2 = to_string(a[1]) + "_" + to_string(a[0]);
 				find_it = tetEdgesPair.find(s2);
 				if (find_it != tetEdgesPair.end()) {
-					edgeId_to_remove.push_back(find_it->second);
-					//rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), NULL);
+					edgeId_to_remove.push_back(find_it->second); 
+					if (i == 0) {
+						int remove_result = rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), &fc);
+						cout << "remove_result: " << remove_result << endl;
+					}
 				}
 			}
-//			rec_tetgenmesh.edge_to_remove.push_back(a[0]);
-			//tetgenmesh::point &startpt = ;
-			//tetgenmesh::point &endpt = ;
-			//tetgenmesh::triface searchtet;
-			//tetgenmesh::face sedge;
-			////for (int j = 0; j < 3; j++) {
-			//	startpt = (REAL*)&tetPoints[a[0]];
-			//	endpt = (REAL*)&tetPoints[a[1]];
-			////}
-			//if (edgeVV.find(string(to_string(a[0]) + "_" + to_string(a[1]))) != edgeVV.end()) {
-			//	rec_tetgenmesh.scoutsegment(startpt, endpt,	&sedge, &searchtet, NULL, NULL);
-			//}
-			//edge_to_collapse.push_back(&searchtet);
 		}
+		i++;
 	}
 	cout << "edgeId_to_remove.size(): " << edgeId_to_remove.size() << endl;
 	for (int i = 0; i < 20; i++) {

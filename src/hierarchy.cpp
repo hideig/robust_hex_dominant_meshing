@@ -372,12 +372,19 @@ bool MultiResolutionHierarchy::tet_meshing()
 	cout << "numberoftrifaces: " << out.numberoftrifaces << endl;
 	cout << "numberofedges:" << out.numberofedges << endl;
 	for (int i = 0; i < out.numberofedges; i++) {
-		//cout << i << endl;
 		tetgenmesh::triface tmpEdge;
+		//tetgenmesh::flipconstraints fc;
+
+		//fc.seg[0] = &out.pointlist[out.edgelist[2 * i]];
+		//fc.seg[1] = &out.pointlist[out.edgelist[2 * i]];
+		//fc.checkflipeligibility = 1;
+		//rec_tetgenmesh.point2tetorg((double*)&(out.pointlist[out.edgelist[2 * i]]), tmpEdge);
 		rec_tetgenmesh.maketetrahedron(&tmpEdge);
+		tmpEdge.tet = (tetgenmesh::tetrahedron*)&out.edge2tetlist[i];
 		int a = (int)out.edgelist[2 * i], b = (int)out.edgelist[2 * i + 1];
-		tmpEdge.tet[4] = (tetgenmesh::tetrahedron)&a;
-		tmpEdge.tet[5] = (tetgenmesh::tetrahedron)&b;
+		//tmpEdge.tet[4] = (tetgenmesh::tetrahedron)&a;
+		//tmpEdge.tet[5] = (tetgenmesh::tetrahedron)&b;
+		//tmpEdge.tet[6] = (tetgenmesh::tetrahedron)out.edge2tetlist[i];
 		tetEdges.push_back(tmpEdge);
 		tetEdgesPair[(to_string(a)+"_"+to_string(b))]=i;
 		fs << i << ": " << a << ", " << b << endl;
