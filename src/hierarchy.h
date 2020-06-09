@@ -55,6 +55,8 @@ public:
 
     MatrixXf &V(uint32_t i = 0) { return mV[i]; }
     const MatrixXf &V(uint32_t i = 0) const { return mV[i]; }
+	MatrixXf &V1(uint32_t i = 0) { return mV1[i]; }
+	const MatrixXf &V1(uint32_t i = 0) const { return mV1[i]; }
 
     MatrixXf &N(uint32_t i = 0) { return mN[i]; }
     const MatrixXf &N(uint32_t i = 0) const { return mN[i]; }
@@ -76,6 +78,8 @@ public:
 
     MatrixXu &T() { return mT; }
     const MatrixXu &T() const { return mT; }
+	MatrixXu &T1() { return mT1; }
+	const MatrixXu &T1() const { return mT1; }
 
     SSMatrix &L(uint32_t i = 0) { return mL[i]; }
     const SSMatrix &L(uint32_t i) const { return mL[i]; }
@@ -148,6 +152,7 @@ public:
     AABB aabb() const { return mAABB; }
 
     size_t vertexCount() const { return mV.size() > 0 ? mV[0].cols() : 0; }
+	size_t vertexCount1() const { return mV1.size() > 0 ? mV1[0].cols() : 0; }
     size_t faceCount() const { return mF.cols(); }
     size_t tetCount() const { return mT.cols(); }
 
@@ -174,6 +179,7 @@ public:
 public:
 	//for both 2D & 3D 
     std::vector<MatrixXf> mV;
+	std::vector<MatrixXf> mV1;
     std::vector<MatrixXf> mN;
     std::vector<MatrixXf> mQ;
     std::vector<MatrixXf> mO;
@@ -182,27 +188,23 @@ public:
     std::vector<SSMatrix> mP;
     MatrixXu mF;
     MatrixXu mT;
-
-
-
-
+	MatrixXu mT1;
 
 	MatrixXu allF;
 	std::vector<MatrixXf> my_mO;
-
-
+	
 	tetgenio tet_mesh;
 	tetgenmesh rec_tetgenmesh;
+	int tetedgenumber=0;
 	vector<tetgenmesh::point> tetmesh_point;
 
 	vector<tetgenmesh::triface> tetEdges;
+	unordered_map<string, tetgenmesh::triface *> edge_mmap_triface;
 	unordered_map<string, int> tetEdgesPair;
-	vector<int> edgeId_to_remove;
-
+	vector<string> edgeId_to_remove;
 
 	// 插入的位置场
 	unordered_map<int, vector<pair<Vector3f, int>>> pe_insert_points;
-
 
 	MatrixXf mVv_tag;
 	std::vector<tuple_E> mpEes;
@@ -223,13 +225,10 @@ public:
 	
 	std::vector<tuple_E> tet_edges;
 
-
 	vector<V3d> tetPoints;
 
 	vector<V3d> yuanPoints;
 	
-
-
 	vector<vector<uint32_t>> vnfs;
 	Float quadricW = 1;
 

@@ -1,6 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" href="$classOpenMesh_1_1PolyConnectivity.html" title="Connectifity Class for polygonal meshes." alt="" coords="79,160,268,189"/>
-<area shape="rect" href="$classOpenMesh_1_1BaseKernel.html" title="This class provides the basic property management like adding/removing properties..." alt="" coords="5,5,163,35"/>
-<area shape="rect" href="$structOpenMesh_1_1ArrayItems.html" title="Definition of mesh items for use in the ArrayKernel." alt="" coords="187,5,341,35"/>
-<area shape="rect" href="$classOpenMesh_1_1TriConnectivity.html" title="Connectifity Class for Triangle Meshes." alt="" coords="84,237,263,267"/>
-</map>

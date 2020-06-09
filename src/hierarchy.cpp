@@ -181,6 +181,7 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 
 	return stats;
 }
+
 bool MultiResolutionHierarchy::tet_meshing()
 {
 	MatrixXf V;
@@ -301,69 +302,35 @@ bool MultiResolutionHierarchy::tet_meshing()
     //tetrahedralize("pqm", &in, &out, &addin, &in_bg);
 	//tet_mesh = out;
 	my_tetrahedralize("pqme", &in, &out, rec_tetgenmesh, &addin, &in_bg);
-	//out.save_edges("D:/myfile/demo");
-	//("D:/myfile/demo");
-	//out.save_edges("D:/myfile/demo");
-	//out.save_faces("D:/myfile/demo");
-	//out.save_elements("D:/myfile/demo");
+
+	out.save_edges("H:/myfile/demo");
+	out.save_faces("H:/myfile/demo");
+	out.save_elements("H:/myfile/demo");
+	std::fstream fs1("H:/myfile/tetpointsmeshio.txt", std::ios::out);
 	mV[0].setZero(); mV[0].resize(3, out.numberofpoints);
 	tetPoints.resize(out.numberofpoints);
+	fs1 << out.numberofpoints << endl;
 	for (uint32_t i = 0; i < out.numberofpoints; i++) {
 		V3d pointtmp;
 		for (uint32_t j = 0; j < 3; j++) {
 			mV[0](j, i) = out.pointlist[3 * i + j];
 			pointtmp[j] = out.pointlist[3 * i + j];
+			fs1 << mV[0](j, i) << "," ;
 		}
+		fs1 << endl;
 		tetPoints[i]=pointtmp;
 	}
-
+	fs1.close();
 	mT.setZero(); 
 	mT.resize(4, out.numberoftetrahedra);
-	//per_tet_edgelist.clear();
-	//per_tet_edgelist.resize(out.numberoftetrahedra);
-	//per_tet_neighbor_tetlist.clear();
-	//per_tet_neighbor_tetlist.resize(out.numberoftetrahedra);
-	//per_tet_facelist.clear();
-	//per_tet_facelist.resize(out.numberoftetrahedra);
-	//cout << "ffffffffffffffffffff" << endl;
 	for (int i = 0; i < out.numberoftetrahedra; i++){
 		for (uint32_t j = 0; j < 4; j++) {
 			mT(j, i) = out.tetrahedronlist[4 * i + j];
-			//per_tet_facelist[i].push_back(out.tet2facelist[4 * i + j]); // 每个体的四个面
-		//	per_tet_neighbor_tetlist[i].push_back(out.neighborlist[4 * i + j]); // 每个体的四个邻居
 		}
-		//for (uint32_t j = 0; j < 6; j++)
-			//per_tet_edgelist[i].push_back(out.tet2edgelist[6 * i + j]); // 每个体的六条边
 	}
-	//// get tetras which containing the edge
-	//per_edge_tetlist.clear();
-	//per_edge_tetlist.resize(out.numberofedges);
-	//for (uint32_t i = 0; i < out.numberoftetrahedra; i++)
-	//	for (uint32_t j = 0; j < 6; j++)
-	//		per_edge_tetlist[per_tet_edgelist[i][j]].push_back(i); // 每条边所属的体
-
-
-	//per_face_tetlist.clear();
-	//per_face_tetlist.resize(out.numberoftrifaces);
-	//per_face_pointlist.clear();
-	//per_face_pointlist.resize(out.numberoftrifaces);
-	//for (int i = 0; i < out.numberoftrifaces; i++) {
-	//	for (uint32_t j = 0; j < 2; j++)
-	//		per_face_tetlist[i].push_back(out.face2tetlist[2 * i + j]);// 每个面所属的体
-	//	for (uint32_t j = 0; j < 3; j++)
-	//		per_face_pointlist[i].push_back(out.trifacelist[3 * i + j]);// 每个面所有的点
-	//}
-	//cout << "ffffffffffffffffffff" << endl;
-	//// get tetras which containing the point
-	//per_point_tetlist.clear();
-	//per_point_tetlist.resize(out.numberofpoints);
-	//for (uint32_t i = 0; i < out.numberoftetrahedra; i++)
-	//	for (uint32_t j = 0; j < 4; j++)
-	//		per_point_tetlist[per_tet_facelist[i][j]].push_back(i); // 每个点所属的体
-
 	tetEdges.clear();
 	tetEdgesPair.clear();
-	std::fstream fs("D:/myfile/tetEdges.txt", std::ios::out);
+	std::fstream fs("H:/myfile/tetpoints.txt", std::ios::out);
 	// 读取tet内的所有edge
 	cout << "numberoffacets: " << out.numberoffacets << endl;
 
@@ -371,26 +338,81 @@ bool MultiResolutionHierarchy::tet_meshing()
 	cout << "numberofpoints: " << out.numberofpoints << endl;
 	cout << "numberoftrifaces: " << out.numberoftrifaces << endl;
 	cout << "numberofedges:" << out.numberofedges << endl;
-	for (int i = 0; i < out.numberofedges; i++) {
-		tetgenmesh::triface tmpEdge;
-		//tetgenmesh::flipconstraints fc;
 
-		//fc.seg[0] = &out.pointlist[out.edgelist[2 * i]];
-		//fc.seg[1] = &out.pointlist[out.edgelist[2 * i]];
-		//fc.checkflipeligibility = 1;
-		//rec_tetgenmesh.point2tetorg((double*)&(out.pointlist[out.edgelist[2 * i]]), tmpEdge);
-		rec_tetgenmesh.maketetrahedron(&tmpEdge);
-		tmpEdge.tet = (tetgenmesh::tetrahedron*)&out.edge2tetlist[i];
-		int a = (int)out.edgelist[2 * i], b = (int)out.edgelist[2 * i + 1];
-		//tmpEdge.tet[4] = (tetgenmesh::tetrahedron)&a;
-		//tmpEdge.tet[5] = (tetgenmesh::tetrahedron)&b;
-		//tmpEdge.tet[6] = (tetgenmesh::tetrahedron)out.edge2tetlist[i];
-		tetEdges.push_back(tmpEdge);
-		tetEdgesPair[(to_string(a)+"_"+to_string(b))]=i;
-		fs << i << ": " << a << ", " << b << endl;
+	unordered_map<int, tetgenmesh::point> imappoint;
+	tetgenmesh::point pointloop;
+	rec_tetgenmesh.points->traversalinit();
+	pointloop = rec_tetgenmesh.pointtraverse();
+	int index = 0;
+	while (pointloop != (tetgenmesh::point)NULL) {
+		// X, y, and z coordinates.
+		imappoint[index++] = pointloop;
+		fs << pointloop[0] << "," << pointloop[1] << "," << pointloop[2] << endl;
+		// Point attributes.
+		pointloop = rec_tetgenmesh.pointtraverse();
 	}
+	fs << "point number: " << index << endl;
 	fs.close();
 
+	std::fstream fs2("H:/myfile/tetEdgesmeshio.txt", std::ios::out); 
+	fs2 << out.numberofedges << endl;
+	tetedgenumber = out.numberofedges;
+	for (int i = 0; i < out.numberofedges; i++) {
+		int a = (int)out.edgelist[2 * i], b = (int)out.edgelist[2 * i + 1];
+		fs2 << a << "_" << b << endl;
+	}
+	fs2.close();
+
+	tetgenmesh::triface tetloop, worktet, spintet;
+	tetgenmesh::point torg, tdest;
+	int ishulledge;
+	int shift = 0;
+	int edgenumber = 0;
+	rec_tetgenmesh.tetrahedrons->traversalinit();
+	tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
+	std::fstream fs3("H:/myfile/tetEdgestetgenmesh.txt", std::ios::out);
+
+	while (tetloop.tet != (tetgenmesh::tetrahedron *)NULL) {
+		// Count the number of Voronoi faces. 
+		worktet.tet = tetloop.tet;
+		for (int i = 0; i < 6; i++) {
+			worktet.ver = rec_tetgenmesh.edge2ver[i];
+			ishulledge = 0;
+			rec_tetgenmesh.fnext(worktet, spintet);
+			do {
+				if (!rec_tetgenmesh.ishulltet(spintet)) {
+					if (rec_tetgenmesh.elemindex(spintet.tet) < rec_tetgenmesh.elemindex(worktet.tet)) break;
+				}
+				else {
+					ishulledge = 1;
+				}
+				rec_tetgenmesh.my_fnextself(spintet);
+			} while (spintet.tet != worktet.tet);
+			if (spintet.tet == worktet.tet) {
+				// Found a new edge.
+				torg = rec_tetgenmesh.org(worktet);
+				tdest = rec_tetgenmesh.dest(worktet);
+			
+				int vstart = rec_tetgenmesh.pointmark(torg) - shift;
+				int vend = rec_tetgenmesh.pointmark(tdest) - shift;
+				tetgenmesh::flipconstraints fc;
+			//	if (vstart == 1978 && vend == 3732) {
+					//int remove_result = rec_tetgenmesh.removeedgebyflips(&worktet, &fc);
+					//cout << "remove_result:" << remove_result << endl;
+			//	}
+				// Output three vertices of this face;
+				string edge_vs = to_string(abs(vstart)) + "_" + to_string(abs(vend));
+				fs3 << edge_vs << endl;
+				if (edge_mmap_triface.find(edge_vs) == edge_mmap_triface.end()) {
+					edge_mmap_triface[edge_vs] = &worktet;
+				}
+				edgenumber++;
+			}
+		}
+		tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
+	}
+	fs3 << edgenumber << endl;
+	fs3.close();
 
 	//Fs
 	std::vector<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, bool>> tempF;

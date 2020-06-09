@@ -1,8 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" href="$Core_2Mesh_2Traits_8hh.html" title="This file defines the default traits and some convenience macros." alt="" coords="295,83,500,112"/>
-<area shape="rect" href="$Attributes_8hh.html" title="This file provides some macros containing attribute usage." alt="" coords="531,160,760,189"/>
-<area shape="rect" href="$VectorT_8hh_source.html" title="OpenMesh/Core/Geometry/VectorT.hh" alt="" coords="21,160,264,189"/>
-<area shape="rect" href="$Handles_8hh_source.html" title="OpenMesh/Core/Mesh/Handles.hh" alt="" coords="288,160,507,189"/>
-<area shape="rect" href="$VectorT__inc_8hh_source.html" title="VectorT_inc.hh" alt="" coords="221,237,328,267"/>
-<area shape="rect" href="$Status_8hh_source.html" title="OpenMesh/Core/Mesh/Status.hh" alt="" coords="549,237,760,267"/>
-</map>

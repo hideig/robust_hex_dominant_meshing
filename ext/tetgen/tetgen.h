@@ -678,7 +678,7 @@ public:
   // Strings of command line arguments and input/output file names.
   char commandline[1024];
   char infilename[1024];
-  char outfilename[1024];
+  char outfilename[1024] = "H://myfile/vvv";
   char addinfilename[1024];
   char bgmeshfilename[1024];
 
@@ -957,11 +957,11 @@ public:
 // a handle of a triangle.                                                   //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
   class triface {
   public:
     tetrahedron *tet;
     int ver; // Range from 0 to 11.
+	int remove_flag = 0;
     triface() : tet(0), ver(0) {}
     triface& operator=(const triface& t) {
       tet = t.tet; ver = t.ver;
@@ -1146,22 +1146,15 @@ public:
   };
 
 ///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
 // flipconstraints                                                           //
-//                                                                           //
 // A structure of a collection of data (options and parameters) which pass   //
 // to the edge flip function flipnm().                                       //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
   class flipconstraints {
-
   public:
-
     // Elementary flip flags.
     int enqflag; // (= flipflag)
     int chkencflag;
-
     // Control flags
     int unflip;  // Undo the performed flips.
     int collectnewtets; // Collect the new tets created by flips.
@@ -1180,7 +1173,6 @@ public:
     point seg[2];  // A constraining edge to be recovered.
     point fac[3];  // A constraining face to be recovered.
     point remvert; // A vertex to be removed.
-
 
     flipconstraints() {
       enqflag = 0; 
@@ -1418,6 +1410,7 @@ public:
   inline void fsym(triface& t1, triface& t2);
   inline void fsymself(triface& t);
   inline void fnext(triface& t1, triface& t2);
+  inline void my_fnextself(triface& t);
   inline void fnextself(triface& t);
   inline point org (triface& t);
   inline point dest(triface& t);
@@ -1955,7 +1948,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
   void carveholes();
-
+  int search_edge(point p0, point p1, triface &tetloop);
   void reconstructmesh();
 
   int  scoutpoint(point, triface*, int randflag);
@@ -2480,7 +2473,11 @@ inline void tetgenmesh::fnext(triface& t1, triface& t2) {
   t2.ver = facepivot2[t1.ver][t2.ver];
 }
 
-
+inline void tetgenmesh::my_fnextself(triface& t) {
+	int t1ver = t.ver;
+	decode((t).tet[facepivot1[(t).ver]], (t)); 
+	(t).ver = facepivot2[t1ver][(t).ver];
+}
 #define fnextself(t) \
   t1ver = (t).ver; \
   decode((t).tet[facepivot1[(t).ver]], (t)); \

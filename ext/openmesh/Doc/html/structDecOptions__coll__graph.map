@@ -1,7 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" href="$classCmdOption.html" title="CmdOption\&lt; bool \&gt;" alt="" coords="5,181,139,211"/>
-<area shape="rect" href="$classCmdOption.html" title="CmdOption\&lt; float \&gt;" alt="" coords="163,181,299,211"/>
-<area shape="rect" href="$classCmdOption.html" title="CmdOption\&lt; std::string \&gt;" alt="" coords="323,181,491,211"/>
-<area shape="rect" title="STL class." alt="" coords="367,85,447,115"/>
-<area shape="rect" title="STL class." alt="" coords="324,5,489,35"/>
-</map>

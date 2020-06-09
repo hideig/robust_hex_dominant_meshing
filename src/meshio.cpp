@@ -1083,13 +1083,13 @@ void my_write_volume_mesh_MESH(MatrixXf &V, MatrixXu &F, MatrixXu &T, char * pat
 	int verticescnt = 0;
 	for (int i = 0; i < V.cols(); i++)
 		f_out_meshlab_ << V(0, i) << "  " << V(1, i) << "  " << V(2, i) << "  " << ++verticescnt << std::endl;
-	f_out_meshlab_ << "Triangles" << std::endl;
+	/*f_out_meshlab_ << "Triangles" << std::endl;
 	f_out_meshlab_  << F.cols() << std::endl;
 
 	for (int i = 0; i < F.cols(); i++)
 	{
 		f_out_meshlab_ << F(0,i)+1 << " " << F(1, i)+1 << " " << F(2,i) +1<< " " << 1 << std::endl;
-	}
+	}*/
 	f_out_meshlab_ << "Tetrahedra" << std::endl;
 	f_out_meshlab_  << T.cols() << std::endl;
 

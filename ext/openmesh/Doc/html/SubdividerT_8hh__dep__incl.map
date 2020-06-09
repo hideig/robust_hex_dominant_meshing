@@ -1,9 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" href="$SubdivideWidget_8hh_source.html" title="src/OpenMesh/Apps/Subdivider/SubdivideWidget.hh" alt="" coords="5,83,328,112"/>
-<area shape="rect" href="$Sqrt3T_8hh.html" title="src/OpenMesh/Tools/Subdivider/Uniform/Sqrt3T.hh" alt="" coords="352,83,667,112"/>
-<area shape="rect" href="$LoopT_8hh.html" title="src/OpenMesh/Tools/Subdivider/Uniform/LoopT.hh" alt="" coords="691,83,1003,112"/>
-<area shape="rect" href="$Uniform_2Composite_2CompositeT_8hh.html" title="src/OpenMesh/Tools/Subdivider/Uniform/Composite/CompositeT.hh" alt="" coords="1027,83,1440,112"/>
-<area shape="rect" href="$CompositeSqrt3T_8hh.html" title="src/OpenMesh/Tools/Subdivider/Uniform/CompositeSqrt3T.hh" alt="" coords="643,160,1021,189"/>
-<area shape="rect" href="$CompositeLoopT_8hh.html" title="src/OpenMesh/Tools/Subdivider/Uniform/CompositeLoopT.hh" alt="" coords="1045,160,1421,189"/>
-<area shape="rect" href="$Uniform_2Composite_2CompositeT_8cc.html" title="src/OpenMesh/Tools/Subdivider/Uniform/Composite/CompositeT.cc" alt="" coords="1445,160,1859,189"/>
-</map>

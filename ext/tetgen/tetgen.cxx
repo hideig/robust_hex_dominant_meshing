@@ -18543,7 +18543,6 @@ int tetgenmesh::checkflipeligibility(int fliptype, point pa, point pb,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
 // removeedgebyflips()    Attempt to remove an edge by flips.                //
 //                                                                           //
 // 'flipedge' is a non-convex or flat edge [a,b,#,#] to be removed.          //
@@ -18552,17 +18551,13 @@ int tetgenmesh::checkflipeligibility(int fliptype, point pa, point pb,
 // removed or not.  A value "2" means the edge is removed, otherwise, the    //
 // edge is not removed and the value (must >= 3) is the current number of    //
 // tets in the edge star.                                                    //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 #include <iostream>
-using namespace std;
-int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
-{
+//using namespace std;
+int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc){
   triface *abtets, spintet;
   int t1ver; 
   int n, nn, i;
-
-
   if (checksubsegflag) {
     // Do not flip a segment.
     if (issubseg(*flipedge)) {
@@ -18579,7 +18574,6 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
       return 0;
     }
   }
-  std::cout << "_1___________" << std::endl;
    // Count the number of tets at edge [a,b].
   n = 0;
   spintet = *flipedge;
@@ -18588,17 +18582,14 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     fnextself(spintet);
     if (spintet.tet == flipedge->tet) break;
   }
-  std::cout << "_2___________" << std::endl;
   if (n < 3) {
     // It is only possible when the mesh contains inverted tetrahedra.  
     terminatetetgen(this, 2); // Report a bug
   }
-  std::cout << "_2___________" << std::endl;
   if ((b->flipstarsize > 0) && (n > b->flipstarsize)) {
     // The star size exceeds the limit.
     return 0; // Do not flip it.
   }
-
   // Allocate spaces.
   abtets = new triface[n];
   // Collect the tets at edge [a,b].
@@ -18611,12 +18602,8 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     fnextself(spintet);
     if (spintet.tet == flipedge->tet) break;
   }
-
-  std::cout << "_3___________" << std::endl;
   // Try to flip the edge (level = 0, edgepivot = 0).
   nn = flipnm(abtets, n, 0, 0, fc);
-
-
   if (nn > 2) {
     // Edge is not flipped. Unmarktest the remaining tets in Star(ab).
     for (i = 0; i < nn; i++) {
@@ -18625,7 +18612,6 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
     // Restore the input edge (needed by Lawson's flip).
     *flipedge = abtets[0];
   }
-  std::cout << "_4___________" << std::endl;
   // Release the temporary allocated spaces.
   // NOTE: fc->unflip must be 0.
   int bakunflip = fc->unflip;
@@ -18634,24 +18620,18 @@ int tetgenmesh::removeedgebyflips(triface *flipedge, flipconstraints* fc)
   fc->unflip = bakunflip;
 
   delete [] abtets;
-
   return nn; 
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//                                                                           //
-// removefacebyflips()    Remove a face by flips.                            //
+///////////////////////////////////////////////////////////////////////////////// removefacebyflips()    Remove a face by flips.                            //
 //                                                                           //
 // Return 1 if the face is removed. Otherwise, return 0.                     //
 //                                                                           //
 // ASSUMPTIONS:                                                              //
 //   - 'flipface' must not be a subface.                                     //
 //   - 'flipface' must not be a hull face.                                   //
-//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
-
-int tetgenmesh::removefacebyflips(triface *flipface, flipconstraints* fc)
-{
+int tetgenmesh::removefacebyflips(triface *flipface, flipconstraints* fc){
   triface fliptets[3], flipedge;
   point pa, pb, pc, pd, pe;
   REAL ori;
@@ -22550,6 +22530,29 @@ void tetgenmesh::carveholes()
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+int tetgenmesh::search_edge(point p0, point p1, triface &tetloop)
+{
+	triface t;
+	int ii;
+
+	tetrahedrons->traversalinit();
+	t.tet = tetrahedrontraverse();
+	while (t.tet != NULL) {
+		for (ii = 0; ii < 6; ii++) {
+			t.ver = edge2ver[ii];
+			if (((org(t) == p0) && (dest(t) == p1)) ||
+				((org(t) == p1) && (dest(t) == p0))) {
+				// Found the tet.
+				tetloop = t;
+				return 1;
+			}
+		}
+		t.tet = tetrahedrontraverse();
+	}
+
+	tetloop.tet = NULL;
+	return 0;
+}
 void tetgenmesh::reconstructmesh()
 {
   tetrahedron *ver2tetarray;
@@ -28945,7 +28948,7 @@ void tetgenmesh::numberedges()
 void tetgenmesh::outnodes(tetgenio* out)
 {
   FILE *outfile = NULL;
-  char outnodefilename[FILENAMESIZE];
+  char outnodefilename[FILENAMESIZE] = "H://myfile/demo2.node";
   face parentsh;
   point pointloop;
   int nextras, bmark, marker = 0, weightDT = 0; 
@@ -28953,10 +28956,10 @@ void tetgenmesh::outnodes(tetgenio* out)
   int pointnumber, firstindex;
   int index, i;
 
-  if (out == (tetgenio *) NULL) {
-    strcpy(outnodefilename, b->outfilename);
-    strcat(outnodefilename, ".node");
-  }
+  //if (out == (tetgenio *) NULL) {
+  //  strcpy(outnodefilename, b->outfilename);
+  //  strcat(outnodefilename, ".node");
+  //}
 
   if (!b->quiet) {
     if (out == (tetgenio *) NULL) {
@@ -28965,14 +28968,14 @@ void tetgenmesh::outnodes(tetgenio* out)
       printf("Writing nodes.\n");
     }
   }
-
+  printf("Writing nodes.\n");
   nextras = numpointattrib;
   if (b->weighted) { // -w
     if (b->weighted_param == 0) weightDT = 1; // Weighted DT.
   }
-
+  printf("Writing nodes.\n");
   bmark = !b->nobound && in->pointmarkerlist;
-
+  printf("Writing nodes.\n");
   if (out == (tetgenio *) NULL) {
     outfile = fopen(outnodefilename, "w");
     if (outfile == (FILE *) NULL) {
@@ -28997,6 +29000,7 @@ void tetgenmesh::outnodes(tetgenio* out)
         terminatetetgen(this, 1);
       }
     }
+	printf("xxxxxxxxxxxxxxxxxxxxxxxx.\n");
     // Allocate space for 'pointmarkerlist' if necessary;
     if (bmark) {
       out->pointmarkerlist = new int[points->items];
@@ -29005,6 +29009,7 @@ void tetgenmesh::outnodes(tetgenio* out)
         terminatetetgen(this, 1);
       }
     }
+	printf("ccccccccccccccccccccc.\n");
     if (b->psc) {
       out->pointparamlist = new tetgenio::pointparam[points->items];
       if (out->pointparamlist == NULL) {
@@ -29020,11 +29025,12 @@ void tetgenmesh::outnodes(tetgenio* out)
   
   // Determine the first index (0 or 1).
   firstindex = b->zeroindex ? 0 : in->firstnumber;
-
+  printf("vvvvvvvvvvvvvvvvvvv.\n");
   points->traversalinit();
   pointloop = pointtraverse();
   pointnumber = firstindex; // in->firstnumber;
   index = 0;
+  printf("yyyyyyyyyyyyyyyyy.\n");
   while (pointloop != (point) NULL) {
     if (bmark) {
       // Default the vertex has a zero marker.
@@ -29122,7 +29128,7 @@ void tetgenmesh::outnodes(tetgenio* out)
     pointnumber++; 
     index++;
   }
-
+  printf("sssssssssssssssssssss.\n");
   if (out == (tetgenio *) NULL) {
     fprintf(outfile, "# Generated by %s\n", b->commandline);
     fclose(outfile);
@@ -29270,7 +29276,7 @@ void tetgenmesh::outmetrics(tetgenio* out)
 void tetgenmesh::outelements(tetgenio* out)
 {
   FILE *outfile = NULL;
-  char outelefilename[FILENAMESIZE];
+  char outelefilename[FILENAMESIZE] = "H://myfile/demo2.ele";
   tetrahedron* tptr;
   point p1, p2, p3, p4;
   point *extralist;
@@ -29284,10 +29290,10 @@ void tetgenmesh::outelements(tetgenio* out)
   int eextras;
   int i;
 
-  if (out == (tetgenio *) NULL) {
-    strcpy(outelefilename, b->outfilename);
-    strcat(outelefilename, ".ele");
-  }
+  //if (out == (tetgenio *) NULL) {
+  //  strcpy(outelefilename, b->outfilename);
+  //  strcat(outelefilename, ".ele");
+  //}
 
   if (!b->quiet) {
     if (out == (tetgenio *) NULL) {
@@ -29417,7 +29423,7 @@ void tetgenmesh::outelements(tetgenio* out)
 void tetgenmesh::outfaces(tetgenio* out)
 {
   FILE *outfile = NULL;
-  char facefilename[FILENAMESIZE];
+  char facefilename[FILENAMESIZE] = "H://myfile/demo2.face";
   triface tface, tsymface;
   face checkmark;
   point torg, tdest, tapex;
@@ -29439,10 +29445,10 @@ void tetgenmesh::outfaces(tetgenio* out)
   int *tet2facelist = NULL;
   int tidx; 
 
-  if (out == (tetgenio *) NULL) {
-    strcpy(facefilename, b->outfilename);
-    strcat(facefilename, ".face");
-  }
+  //if (out == (tetgenio *) NULL) {
+  //  strcpy(facefilename, b->outfilename);
+  //  strcat(facefilename, ".face");
+  //}
 
   if (!b->quiet) {
     if (out == (tetgenio *) NULL) {
@@ -31321,8 +31327,6 @@ void tetgenmesh::outmesh2vtk(char* ofilename)
 ///////////////////////////////////////////////////////////////////////////////
 using namespace std;
 #include <vector>
-
-
 void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmesh& m,
 	tetgenio *addin, tetgenio *bgmin)
 {
@@ -31336,7 +31340,7 @@ void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmes
 	m.in = in;
 	m.addin = addin;
 
-	if (b->metric && bgmin && (bgmin->numberofpoints > 0)) {
+	if (b->metric && bgmin && (bgmin->numberofpoints > 0)){
 		m.bgm = new tetgenmesh(); // Create an empty background mesh.
 		m.bgm->b = b;
 		m.bgm->in = bgmin;
@@ -31671,6 +31675,67 @@ void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmes
 	}
 
 	return;
+}
+#ifndef TETLIBRARY
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// main()    The command line interface of TetGen.                           //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+int main(int argc, char *argv[])
+
+#else // with TETLIBRARY
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// my_tetrahedralize()    The library interface of TetGen.                      //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+void my_tetrahedralize(char *switches, tetgenio *in, tetgenio *out, tetgenmesh& m,
+                    tetgenio *addin, tetgenio *bgmin)
+
+#endif // not TETLIBRARY
+{
+  tetgenbehavior b;
+
+#ifndef TETLIBRARY
+
+  tetgenio in, addin, bgmin;
+  tetgenmesh m;
+  if (!b.parse_commandline(argc, argv)) {
+    terminatetetgen(NULL, 10);
+  }
+
+  // Read input files.
+  if (b.refine) { // -r
+    if (!in.load_tetmesh(b.infilename, (int) b.object)) {
+      terminatetetgen(NULL, 10);
+    }
+  } else { // -p
+    if (!in.load_plc(b.infilename, (int) b.object)) {
+      terminatetetgen(NULL, 10);
+    }
+  }
+  if (b.insertaddpoints) { // -i
+    // Try to read a .a.node file.
+    addin.load_node(b.addinfilename);
+  }
+  if (b.metric) { // -m
+    // Try to read a background mesh in files .b.node, .b.ele.
+    bgmin.load_tetmesh(b.bgmeshfilename, (int) b.object);
+  }
+
+  my_tetrahedralize(&b, &in, NULL, m,  &addin, &bgmin);
+
+  return 0;
+
+#else // with TETLIBRARY
+
+  if (!b.parse_commandline(switches)) {
+    terminatetetgen(NULL, 10);
+  }
+  my_tetrahedralize(&b, in, out, m, addin, bgmin);
+#endif // not TETLIBRARY
 }
 
 //void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
@@ -32009,7 +32074,7 @@ void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmes
 //  }
 //}
 
-#ifndef TETLIBRARY
+//#ifndef TETLIBRARY
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
@@ -32017,9 +32082,9 @@ void my_tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out, tetgenmes
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-int main(int argc, char *argv[])
-
-#else // with TETLIBRARY
+//int main(int argc, char *argv[])
+//
+//#else // with TETLIBRARY
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
@@ -32076,53 +32141,7 @@ int main(int argc, char *argv[])
 //
 //#endif // not TETLIBRARY
 //}
-void my_tetrahedralize(char *switches, tetgenio *in, tetgenio *out, tetgenmesh& m,
-                    tetgenio *addin, tetgenio *bgmin)
 
-#endif // not TETLIBRARY
-
-{
-  tetgenbehavior b;
-
-#ifndef TETLIBRARY
-
-  tetgenio in, addin, bgmin;
-  tetgenmesh m;
-  if (!b.parse_commandline(argc, argv)) {
-    terminatetetgen(NULL, 10);
-  }
-
-  // Read input files.
-  if (b.refine) { // -r
-    if (!in.load_tetmesh(b.infilename, (int) b.object)) {
-      terminatetetgen(NULL, 10);
-    }
-  } else { // -p
-    if (!in.load_plc(b.infilename, (int) b.object)) {
-      terminatetetgen(NULL, 10);
-    }
-  }
-  if (b.insertaddpoints) { // -i
-    // Try to read a .a.node file.
-    addin.load_node(b.addinfilename);
-  }
-  if (b.metric) { // -m
-    // Try to read a background mesh in files .b.node, .b.ele.
-    bgmin.load_tetmesh(b.bgmeshfilename, (int) b.object);
-  }
-
-  my_tetrahedralize(&b, &in, NULL, m,  &addin, &bgmin);
-
-  return 0;
-
-#else // with TETLIBRARY
-
-  if (!b.parse_commandline(switches)) {
-    terminatetetgen(NULL, 10);
-  }
-  my_tetrahedralize(&b, in, out, m, addin, bgmin);
-#endif // not TETLIBRARY
-}
 
 ////                                                                       ////
 ////                                                                       ////

@@ -1121,8 +1121,6 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 		qframes[j] = LatticeCore::QuaternionFrame(x, y, z, w);
 	}
 
-
-
 	for (int i = 0; i < stage1_points.size(); i++) {
 		int research_num = 6;//这里插值标架场，用的是最近的六个，或者用距离一格内的所有点，两种差不多
 		auto result = tet_tree.kknnSearch(stage1_points[i], research_num);
@@ -1175,6 +1173,10 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 			insert_new_vertex(i, insert_r);
 		}
 	}
+	// 
+
+
+	// 找缺失的边
 	/*
 	set<int> st;
 	int cnt = 0;
@@ -1303,6 +1305,10 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 	//	miss_edge_vertices.push_back(tetPoints[a]);
 	//}
 	*/
+
+
+	// 每个要加的新点，找到其所在的四面体
+	// tetgen locate
 	time_.endStage();
 	vector<V3d> groupPoint;
 	mTs_4V.clear();
@@ -1474,42 +1480,177 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 	//points_show.push_back(miss_edge_vertices);
 	cout << "vvvectorId[2].size(): " << vvvectorId[2].size() << endl;
 
-	showPoints(points_show);
+	//showPoints(points_show);
 	int i = 0;
 	tetgenmesh::flipconstraints fc;
+	rec_tetgenmesh.checksubsegflag = 1;
+	cout << "edge_mmap_triface.size()" << edge_mmap_triface.size() << endl;
+	unordered_set<string> edge_vss;
 	for(auto a: vvvectorId[2]){
-		/*				
-		if (edgeVV.find(string(to_string(a[0]) + "_" + to_string(a[1]))) != edgeVV.end()
-			|| edgeVV.find(string(to_string(a[1]) + "_" + to_string(a[0]))) != edgeVV.end())*/ {
-			//sameEdge++;
-			string s1 = to_string(a[0]) + "_" + to_string(a[1]);
-			auto find_it = tetEdgesPair.find(s1);
-			if (find_it != tetEdgesPair.end()) {
-				edgeId_to_remove.push_back(find_it->second);
-				if (i == 0) {
-					int remove_result = rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), &fc);
-					cout << "remove_result: " << remove_result << endl;
+		string s1 = to_string(a[0]) + "_" + to_string(a[1]);
+		string s2 = to_string(a[1]) + "_" + to_string(a[0]);
+		edge_vss.insert(s1);
+		edge_vss.insert(s2);
+		//string s1 = to_string(a[0]) + "_" + to_string(a[1]);
+		//auto find_it = edge_mmap_triface.find(s1);
+		//if (find_it != edge_mmap_triface.end()) {
+		//	edgeId_to_remove.push_back(find_it->first);
+		//	if (i == 5) {
+		//		int remove_result = rec_tetgenmesh.removeedgebyflips(find_it->second, &fc);
+		//		cout << "remove_result: " << remove_result << endl;
+		//	}
+		//	continue;
+		//}
+		//else {
+		//	string s2 = to_string(a[1]) + "_" + to_string(a[0]);
+		//	find_it = edge_mmap_triface.find(s2);
+		//	if (find_it != edge_mmap_triface.end()) {
+		//		edgeId_to_remove.push_back(find_it->first); 
+		//		if (i == 5) {
+		//			int remove_result = rec_tetgenmesh.removeedgebyflips(find_it->second, &fc);
+		//			cout << "remove_result: " << remove_result << endl;
+		//		}
+		//	}
+		//}
+		//i++;
+	}
+
+	tetgenmesh::triface tetloop, worktet, spintet;
+	tetgenmesh::point torg, tdest;
+	int ishulledge;
+	int shift = 0;
+	int edgenumber = 0;
+	int number = 0, removenumber = 0;
+	rec_tetgenmesh.tetrahedrons->traversalinit();
+	tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
+	vector<tetgenmesh::triface> tmptrifaces;
+	while (tetloop.tet != (tetgenmesh::tetrahedron *)NULL) {
+		// Count the number of Voronoi faces. 
+		worktet.tet = tetloop.tet;
+		for (int i = 0; i < 6; i++) {
+			worktet.ver = rec_tetgenmesh.edge2ver[i];
+			ishulledge = 0;
+			rec_tetgenmesh.fnext(worktet, spintet);
+			do {
+				if (!rec_tetgenmesh.ishulltet(spintet)) {
+					if (rec_tetgenmesh.elemindex(spintet.tet) < rec_tetgenmesh.elemindex(worktet.tet)) break;
 				}
-				continue;
-			}
-			else {
-				string s2 = to_string(a[1]) + "_" + to_string(a[0]);
-				find_it = tetEdgesPair.find(s2);
-				if (find_it != tetEdgesPair.end()) {
-					edgeId_to_remove.push_back(find_it->second); 
-					if (i == 0) {
-						int remove_result = rec_tetgenmesh.removeedgebyflips(&(tetEdges[find_it->second]), &fc);
-						cout << "remove_result: " << remove_result << endl;
+				else {
+					ishulledge = 1;
+				}
+				rec_tetgenmesh.my_fnextself(spintet);
+			} while (spintet.tet != worktet.tet);
+			if (spintet.tet == worktet.tet) {
+				// Found a new edge.
+				torg = rec_tetgenmesh.org(worktet);
+				tdest = rec_tetgenmesh.dest(worktet);
+				int vstart = rec_tetgenmesh.pointmark(torg) - shift;
+				int vend = rec_tetgenmesh.pointmark(tdest) - shift;
+				string edge_vs = to_string(abs(vstart)) + "_" + to_string(abs(vend));
+				if (edge_vss.count(edge_vs)) {
+					//removenumber++;
+					//worktet.remove_flag = 1;
+					tetgenmesh::triface tmptriface;
+					int found = rec_tetgenmesh.search_edge(torg, tdest, tmptriface);
+					if (found) {
+						tmptriface.remove_flag = 1;
+						tmptrifaces.push_back(tmptriface);
+						//tetgenmesh::flipconstraints fc;
+						//int remove_result = rec_tetgenmesh.removeedgebyflips(&tmptriface, &fc);
+						//cout << "remove_result: " << remove_result << endl;
+						//if (edge_vss.count(edge_vs)) {
+						//	removenumber++;
+						//	worktet.remove_flag = 1;
+						//}
 					}
 				}
+				edgenumber++;
 			}
 		}
-		i++;
+		tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
 	}
+	cout << "tmptrifaces.size(): " << tmptrifaces.size() << endl;
+	cout << "begin remove edge......" << endl;
+	//for (auto a : tmptrifaces) {
+	//	tetgenmesh::flipconstraints fc;
+	//	int remove_result = rec_tetgenmesh.removeedgebyflips(&a, &fc);
+	//	cout << "remove_result: " << remove_result << endl;
+	//}
+	//rec_tetgenmesh.tetrahedrons->traversalinit();
+	//tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
+	//while (tetloop.tet != (tetgenmesh::tetrahedron *)NULL) {
+	//	// Count the number of Voronoi faces. 
+	//	worktet.tet = tetloop.tet;
+	//	for (int i = 0; i < 6; i++) {
+	//		worktet.ver = rec_tetgenmesh.edge2ver[i];
+	//		ishulledge = 0;
+	//		rec_tetgenmesh.fnext(worktet, spintet);
+	//		do {
+	//			if (!rec_tetgenmesh.ishulltet(spintet)) {
+	//				if (rec_tetgenmesh.elemindex(spintet.tet) < rec_tetgenmesh.elemindex(worktet.tet)) break;
+	//			}
+	//			else {
+	//				ishulledge = 1;
+	//			}
+	//			rec_tetgenmesh.my_fnextself(spintet);
+	//		} while (spintet.tet != worktet.tet);
+	//		if (spintet.tet == worktet.tet) {
+	//			// Found a new edge.
+	//			if (worktet.remove_flag) {
+	//				tetgenmesh::flipconstraints fc;
+	//				int remove_result = rec_tetgenmesh.removeedgebyflips(&worktet, &fc);
+	//				cout << "remove_result: "<< remove_result << endl;
+	//			}
+	//		}
+	//	}
+	//	tetloop.tet = rec_tetgenmesh.tetrahedrontraverse();
+	//}
+
 	cout << "edgeId_to_remove.size(): " << edgeId_to_remove.size() << endl;
 	for (int i = 0; i < 20; i++) {
 		if(nDup[i] >0) cout << i << ": " << nDup[i] << endl;
 	}
+	tetgenmesh::point pointloop;
+	rec_tetgenmesh.points->traversalinit();
+	pointloop = rec_tetgenmesh.pointtraverse();
+	int index = 0;
+	while (pointloop != (tetgenmesh::point)NULL) {
+		// X, y, and z coordinates.
+		//cout << pointloop[0] << "," << pointloop[1] << "," << pointloop[2] << endl;
+		pointloop = rec_tetgenmesh.pointtraverse();
+		index++;
+	}
+	cout << "point number: " << index << endl;
+
+	tetgenio iout;
+	rec_tetgenmesh.outnodes(NULL);
+	//rec_tetgenmesh.outelements(NULL);
+	//rec_tetgenmesh.outfaces(NULL);
+	//cout << "bbbbbbbbbbbb" << endl;
+	//rec_tetgenmesh.outedges(NULL);
+	//rec_tetgenmesh.outnodes(&iout);
+	//rec_tetgenmesh.outelements(&iout);
+	//rec_tetgenmesh.outedges(&iout);
+	//cout << "out.numberofpoints: " << iout.numberofpoints << endl;
+	//cout << "out.numberoftetrahedra: "<< iout.numberoftetrahedra << endl;
+	//cout << "out.numberofedges: " << iout.numberofedges << endl;
+	//mV1[0].setZero();mV1[0].resize(3, out.numberofpoints);
+	//for (uint32_t i = 0; i < out.numberofpoints; i++) {
+	//	for (uint32_t j = 0; j < 3; j++) {
+	//		mV1[0](j, i) = out.pointlist[3 * i + j];
+	//	}
+	//}
+	//mT1.setZero();
+	//mT1.resize(4, out.numberoftetrahedra);
+	//for (int i = 0; i < out.numberoftetrahedra; i++) {
+	//	for (uint32_t j = 0; j < 4; j++) {
+	//		mT1(j, i) = out.tetrahedronlist[4 * i + j];
+	//	}
+	//}
+
+	//char path[512] = "H:/myfile/tet_mesh_______.mesh";
+	//my_write_volume_mesh_MESH(mV[0], mF, mT, path);
+	//std::cout << "V, T: " << mV1[0].cols() << " " << mT1.cols() << endl;
 	//my_mO[0].resize(3, noval_vertices.size());
 	//for (int i = 0; i < noval_vertices.size(); i++) {
 	//	for (int j = 0; j < 3; j++) {
@@ -1872,7 +2013,7 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 	cout << "done with extraction!" << endl;
 	time_decompose.endStage();
 
-	std::fstream fs("D:/myfile/mpEs.txt", std::ios::out);
+	std::fstream fs("H:/myfile/mpEs.txt", std::ios::out);
 	// 读取tet内的所有edge
 	cout << "mpEs.size(): " << mpEs.size() << endl;
 	for (int i = 0; i < mpEs.size(); i++) {
@@ -1887,9 +2028,9 @@ bool MultiResolutionHierarchy::meshExtraction3D() {
 			cloud_vertices(j, i) = stage1_points[i][j];
 		}
 	}
-	char tet_vertices_set_path[512] = "D:/myfile/tet_vertices_set.node";
+	char tet_vertices_set_path[512] = "H:/myfile/tet_vertices_set.node";
 	write_tet_veitices_set(cloud_vertices, tet_vertices_set_path);
-	char tet_vertices_set_path2[512] = "D:/myfile/Points.node";
+	char tet_vertices_set_path2[512] = "H:/myfile/Points.node";
 	write_tet_veitices_set2(cloud_vertices, tet_vertices_set_path2);
 }
 void MultiResolutionHierarchy::find_otheredges(vector<tuple_E> &otheredges,	vector<tuple_E> &persistentedges, vector<Vector3f>& insert_points_tmp) {
@@ -5818,7 +5959,6 @@ Float MultiResolutionHierarchy::compute_cost_edge3D(uint32_t v0, uint32_t v1) {
 	return min_cost;
 }
 
-#include "edge_contract.h"
 using namespace std;
 /** Erase a Tetra of the TetraMesh.
 *	This function invalid the tetra to erase by adding it to free_list,
